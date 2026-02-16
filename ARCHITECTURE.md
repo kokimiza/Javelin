@@ -50,8 +50,8 @@ Javelinは以下の4層で構成される。
 
 | 用途 | DB |
 |------------|------------|
-| 書き込み | Event Store SQLite |
-| 読み取り | Projection SQLite（複数可） |
+| 書き込み | Event Store LMDB |
+| 読み取り | Projection LMDB（複数可） |
 
 ---
 
@@ -270,7 +270,7 @@ Javelinは以下の4層で構成される。
 
 | 要素 | 役割 |
 |------------|------------|
-| EventStore実装 | SQLiteイベント保存 |
+| EventStore実装 | LMDBイベント保存 |
 | ProjectionDB | ReadModel保存 |
 | Repository実装 | RepositoryTrait具象化 |
 

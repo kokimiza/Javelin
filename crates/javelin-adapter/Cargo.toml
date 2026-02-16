@@ -1,0 +1,22 @@
+[package]
+name = "javelin-adapter"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Internal dependencies
+javelin-domain = { workspace = true }
+javelin-application = { workspace = true }
+
+# External dependencies
+thiserror = { workspace = true }
+tokio = { workspace = true }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+color-eyre = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
