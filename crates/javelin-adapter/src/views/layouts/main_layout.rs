@@ -18,10 +18,7 @@ pub struct KeyBinding {
 
 impl KeyBinding {
     pub fn new(key: impl Into<String>, description: impl Into<String>) -> Self {
-        Self {
-            key: key.into(),
-            description: description.into(),
-        }
+        Self { key: key.into(), description: description.into() }
     }
 }
 
@@ -33,9 +30,7 @@ pub struct Breadcrumb {
 
 impl Breadcrumb {
     pub fn new(label: impl Into<String>) -> Self {
-        Self {
-            label: label.into(),
-        }
+        Self { label: label.into() }
     }
 }
 
@@ -97,7 +92,7 @@ impl MainLayout {
                 .direction(Direction::Horizontal)
                 .constraints([
                     Constraint::Percentage(62), // メインビュー
-                    Constraint::Percentage(38), // イベントビューア
+                    Constraint::Percentage(38), // イベントビューア+カレンダー
                 ])
                 .split(main_chunks[1])
         } else {
@@ -123,17 +118,10 @@ impl MainLayout {
 
     fn render_header(&self, frame: &mut Frame, area: Rect) {
         let mut header_spans = vec![
-            Span::styled(
-                "◆ ",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            ),
+            Span::styled("◆ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
             Span::styled(
                 &self.title,
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
             ),
         ];
 
@@ -148,9 +136,7 @@ impl MainLayout {
 
                 let style = if i == self.breadcrumbs.len() - 1 {
                     // 最後の項目（現在地）は強調
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD)
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
                 } else {
                     // それ以外は控えめに
                     Style::default().fg(Color::Gray)
@@ -172,13 +158,11 @@ impl MainLayout {
         let mut key_hints: Vec<Span> = Vec::new();
         for (i, kb) in self.key_bindings.iter().enumerate() {
             if i > 0 {
-                key_hints.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+                key_hints.push(Span::styled(" | ", Style::default().fg(Color::DarkGray)));
             }
             key_hints.push(Span::styled(
                 format!("[{}]", kb.key),
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
             ));
             key_hints.push(Span::styled(
                 format!(" {}", kb.description),

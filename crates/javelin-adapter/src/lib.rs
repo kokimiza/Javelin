@@ -3,11 +3,11 @@
 
 pub mod controller;
 pub mod error;
-pub mod error_handler;
+pub mod input_mode;
 pub mod presenter;
 pub mod view_router;
 pub mod views;
 
 // Re-export for convenience
-pub use error_handler::*;
+pub use input_mode::{InputMode, JjEscapeDetector, ModifyInputType};
 pub use views::*;

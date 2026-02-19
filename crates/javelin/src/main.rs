@@ -1,8 +1,7 @@
 // Javelin - 主計部業務バッチシステム
 // Clean Architecture + Event Sourcing + CQRS
 
-use javelin::app_builder::ApplicationBuilder;
-use javelin::app_error::AppResult;
+use javelin::{app_builder::ApplicationBuilder, app_error::AppResult};
 
 #[tokio::main]
 async fn main() -> AppResult<()> {

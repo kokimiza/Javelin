@@ -22,10 +22,7 @@ pub enum StatusType {
 
 impl StatusBar {
     pub fn new(message: impl Into<String>, status_type: StatusType) -> Self {
-        Self {
-            message: message.into(),
-            status_type,
-        }
+        Self { message: message.into(), status_type }
     }
 
     pub fn info(message: impl Into<String>) -> Self {

@@ -1,127 +1,219 @@
-// EventViewer - イベントビューアコンポーネント
-// 責務: イベントソーシングのイベントを時系列で表示（状態保持なし）
+// EventViewer - イベント表示コンポーネント
+// 責務: INFO/ERRORイベントの表示（カレンダー統合）
 
 use ratatui::{
     Frame,
-    layout::{Alignment, Rect},
-    style::{Color, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, List, ListItem, ListState},
 };
 
-/// イベント情報
-#[derive(Clone, Debug)]
-pub struct EventInfo {
-    pub timestamp: String,
-    pub user: String,
-    pub location: String,
-    pub action: String,
+use super::Calendar;
+
+#[derive(Debug, Clone)]
+pub enum EventLevel {
+    Info,
+    Error,
 }
 
-impl EventInfo {
-    pub fn new(
-        timestamp: impl Into<String>,
-        user: impl Into<String>,
-        location: impl Into<String>,
-        action: impl Into<String>,
-    ) -> Self {
+#[derive(Debug, Clone)]
+pub struct Event {
+    pub level: EventLevel,
+    pub timestamp: String,
+    pub message: String,
+}
+
+impl Event {
+    pub fn info(message: impl Into<String>) -> Self {
         Self {
-            timestamp: timestamp.into(),
-            user: user.into(),
-            location: location.into(),
-            action: action.into(),
+            level: EventLevel::Info,
+            timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+            message: message.into(),
+        }
+    }
+
+    pub fn error(message: impl Into<String>) -> Self {
+        Self {
+            level: EventLevel::Error,
+            timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+            message: message.into(),
         }
     }
 }
 
-/// イベントビューア（状態なし）
-pub struct EventViewer;
+pub struct EventViewer {
+    events: Vec<Event>,
+    state: ListState,
+    max_events: usize,
+    calendar: Calendar,
+}
 
 impl EventViewer {
     pub fn new() -> Self {
-        Self
-    }
-
-    /// イベントリストを描画（状態を外部から受け取る）
-    pub fn render(&self, frame: &mut Frame, area: Rect, events: &[EventInfo]) {
-        if events.is_empty() {
-            self.render_empty(frame, area);
-        } else {
-            self.render_events(frame, area, events);
+        Self {
+            events: Vec::new(),
+            state: ListState::default(),
+            max_events: 100,
+            calendar: Calendar::new(),
         }
     }
 
-    fn render_empty(&self, frame: &mut Frame, area: Rect) {
-        let empty_msg = Paragraph::new("イベントはまだありません")
-            .style(Style::default().fg(Color::DarkGray))
-            .alignment(Alignment::Center)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title("イベントログ")
-                    .style(Style::default().fg(Color::Cyan)),
-            );
+    pub fn add_event(&mut self, event: Event) {
+        self.events.push(event);
 
-        frame.render_widget(empty_msg, area);
+        // 最大イベント数を超えたら古いものを削除
+        if self.events.len() > self.max_events {
+            self.events.remove(0);
+        }
+
+        // 自動的に最新イベントにスクロール
+        if !self.events.is_empty() {
+            self.state.select(Some(self.events.len() - 1));
+        }
     }
 
-    fn render_events(&self, frame: &mut Frame, area: Rect, events: &[EventInfo]) {
-        // イベントを新しい順に表示
-        let max_width = area.width.saturating_sub(4) as usize;
+    pub fn add_info(&mut self, message: impl Into<String>) {
+        self.add_event(Event::info(message));
+    }
 
-        let items: Vec<ListItem> = events
+    pub fn add_error(&mut self, message: impl Into<String>) {
+        self.add_event(Event::error(message));
+    }
+
+    pub fn scroll_up(&mut self) {
+        if self.events.is_empty() {
+            return;
+        }
+
+        let selected = self.state.selected().unwrap_or(self.events.len() - 1);
+        if selected > 0 {
+            self.state.select(Some(selected - 1));
+        }
+    }
+
+    pub fn scroll_down(&mut self) {
+        if self.events.is_empty() {
+            return;
+        }
+
+        let selected = self.state.selected().unwrap_or(0);
+        if selected < self.events.len() - 1 {
+            self.state.select(Some(selected + 1));
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.events.clear();
+        self.state.select(None);
+    }
+
+    fn wrap_message(&self, message: &str, width: usize) -> Vec<String> {
+        if width == 0 {
+            return vec![message.to_string()];
+        }
+
+        let mut lines = Vec::new();
+        let mut current = String::new();
+
+        for word in message.split_whitespace() {
+            if current.is_empty() {
+                current = word.to_string();
+            } else if current.len() + 1 + word.len() <= width {
+                current.push(' ');
+                current.push_str(word);
+            } else {
+                lines.push(current);
+                current = word.to_string();
+            }
+        }
+
+        if !current.is_empty() {
+            lines.push(current);
+        }
+
+        if lines.is_empty() {
+            lines.push(String::new());
+        }
+
+        lines
+    }
+
+    pub fn render(&mut self, frame: &mut Frame, area: Rect) {
+        // エリアを上下に分割: イベントログ62%、カレンダー38%
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(62), // イベントログ
+                Constraint::Percentage(38), // カレンダー
+            ])
+            .split(area);
+
+        // イベントログを描画
+        let log_width = chunks[0].width.saturating_sub(2) as usize; // ボーダー分を引く
+
+        let items: Vec<ListItem> = self
+            .events
             .iter()
-            .rev()
             .map(|event| {
-                // 長いテキストを折り返し
-                let action_text = &event.action;
-                let action_lines: Vec<Line> = if action_text.len() > max_width {
-                    action_text
-                        .chars()
-                        .collect::<Vec<_>>()
-                        .chunks(max_width)
-                        .map(|chunk| {
-                            Line::from(Span::styled(
-                                chunk.iter().collect::<String>(),
-                                Style::default().fg(Color::White),
-                            ))
-                        })
-                        .collect()
-                } else {
-                    vec![Line::from(Span::styled(
-                        action_text,
-                        Style::default().fg(Color::White),
-                    ))]
+                let (level_str, level_color) = match event.level {
+                    EventLevel::Info => ("INFO ", Color::Cyan),
+                    EventLevel::Error => ("ERROR", Color::Red),
                 };
 
-                let mut lines = vec![
-                    Line::from(vec![Span::styled(
-                        &event.timestamp,
-                        Style::default().fg(Color::Yellow),
-                    )]),
-                    Line::from(vec![
-                        Span::raw("👤 "),
-                        Span::styled(&event.user, Style::default().fg(Color::Green)),
-                        Span::raw(" @ "),
-                        Span::styled(&event.location, Style::default().fg(Color::Cyan)),
-                    ]),
-                ];
+                let prefix = format!("[{}] {} ", event.timestamp, level_str);
+                let prefix_len = prefix.len();
+                let available_width = log_width.saturating_sub(prefix_len);
 
-                lines.extend(action_lines);
-                lines.push(Line::from(""));
+                let wrapped_lines = self.wrap_message(&event.message, available_width);
+                let mut text_lines = Vec::new();
 
-                ListItem::new(lines)
+                for (i, line) in wrapped_lines.into_iter().enumerate() {
+                    if i == 0 {
+                        // 最初の行にはプレフィックスを付ける
+                        text_lines.push(Line::from(vec![
+                            Span::styled(
+                                format!("[{}] ", event.timestamp),
+                                Style::default().fg(Color::DarkGray),
+                            ),
+                            Span::styled(
+                                level_str,
+                                Style::default().fg(level_color).add_modifier(Modifier::BOLD),
+                            ),
+                            Span::raw(" "),
+                            Span::styled(line, Style::default().fg(Color::White)),
+                        ]));
+                    } else {
+                        // 2行目以降はインデント
+                        text_lines.push(Line::from(vec![
+                            Span::raw(" ".repeat(prefix_len)),
+                            Span::styled(line, Style::default().fg(Color::White)),
+                        ]));
+                    }
+                }
+
+                ListItem::new(Text::from(text_lines))
             })
             .collect();
 
-        let list = List::new(items).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("イベントログ")
-                .style(Style::default().fg(Color::Cyan)),
-        );
+        let list = List::new(items)
+            .block(
+                Block::default()
+                    .title("◆ イベントログ ◆")
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Gray)),
+            )
+            .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD));
 
-        frame.render_widget(list, area);
+        frame.render_stateful_widget(list, chunks[0], &mut self.state);
+
+        // カレンダーを描画（ボーダー付きブロックで囲んで領域全体を使用）
+        let calendar_block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Gray));
+        let calendar_inner = calendar_block.inner(chunks[1]);
+        frame.render_widget(calendar_block, chunks[1]);
+        self.calendar.render(frame, calendar_inner);
     }
 }
 

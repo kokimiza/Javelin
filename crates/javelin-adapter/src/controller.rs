@@ -2,36 +2,14 @@
 // 責務: DTO変換、InputPort呼び出し
 // 禁止: 業務判断
 
-use javelin_application::dtos::{RecordUserActionRequest, RecordUserActionResponse};
-use javelin_application::input_ports::RecordUserActionUseCase;
-use std::sync::Arc;
+pub mod account_master_controller;
+pub mod closing_controller;
+pub mod journal_entry_controller;
+pub mod ledger_controller;
+pub mod record_user_action_controller;
 
-/// ユーザ操作記録コントローラ
-pub struct RecordUserActionController {
-    use_case: Arc<dyn RecordUserActionUseCase>,
-}
-
-impl RecordUserActionController {
-    pub fn new(use_case: Arc<dyn RecordUserActionUseCase>) -> Self {
-        Self { use_case }
-    }
-
-    /// ユーザ操作を記録
-    pub async fn record_action(
-        &self,
-        user: impl Into<String>,
-        location: impl Into<String>,
-        action: impl Into<String>,
-    ) -> Result<RecordUserActionResponse, String> {
-        let request = RecordUserActionRequest {
-            user: user.into(),
-            location: location.into(),
-            action: action.into(),
-        };
-
-        self.use_case
-            .execute(request)
-            .await
-            .map_err(|e| e.to_string())
-    }
-}
+pub use account_master_controller::AccountMasterController;
+pub use closing_controller::ClosingController;
+pub use journal_entry_controller::JournalEntryController;
+pub use ledger_controller::LedgerController;
+pub use record_user_action_controller::RecordUserActionController;
