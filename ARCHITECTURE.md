@@ -1,7 +1,3 @@
-# Javelin Clean Architecture
-
----
-
 # 1. アーキテクチャ総則
 
 Javelinは以下の4層で構成される。
@@ -184,6 +180,7 @@ Javelinは以下の4層で構成される。
 | 利用対象 | Entity / ValueObject / DomainService / RepositoryTrait |
 | 判断基準 | ドメイン委譲 |
 | 表示更新 | OutputPort経由のみ |
+| DTO変換 | TryFromトレイトを使用 |
 
 ---
 
@@ -193,6 +190,37 @@ Javelinは以下の4層で構成される。
 |------------|------------|
 | 構成 | プリミティブ型 |
 | 目的 | ドメイン隔離 |
+| 変換 | TryFromトレイトで実装 |
+| 責務 | アダプター層とアプリケーション層の境界 |
+
+---
+
+## 3.8 DTO変換原則
+
+DTOはアプリケーション層の産物であり、以下の役割を持つ：
+
+1. **レスポンスDTO**: アダプター層へ返すプリミティブデータ
+   - アプリケーション層内部ではエンティティ/値オブジェクトを使用
+   - 返却時のみDTOに詰め替え
+
+2. **リクエストDTO**: アダプター層から受け取るプリミティブデータ
+   - INPUT PORTへ渡せる唯一のプロトコル
+   - TryFromトレイトでドメインオブジェクトへ変換
+
+**変換実装:**
+```rust
+impl TryFrom<&JournalEntryLineDto> for JournalEntryLine {
+    type Error = ApplicationError;
+    fn try_from(dto: &JournalEntryLineDto) -> Result<Self, Self::Error> {
+        // DTO → ドメインオブジェクト変換
+    }
+}
+```
+
+**重要原則:**
+- ドメインDTOは存在しない
+- DTOはアプリケーション層管轄
+- 変換ロジックはDTOに実装（ユーティリティクラス不要）
 
 ---
 
@@ -235,6 +263,26 @@ Javelinは以下の4層で構成される。
 | 不変性 | 必須 |
 | 検証 | コンストラクタ内実施 |
 | 演算 | 業務意味単位で提供 |
+| 標準トレイト | FromStr, Display実装推奨 |
+
+---
+
+## 4.4.1 ValueObject標準トレイト実装
+
+Enumや構造体の値オブジェクトには、Rustの標準トレイトを実装することで、コードの一貫性と可読性を向上させる。
+
+| トレイト | 用途 | 実装例 |
+|------------|------------|------------|
+| FromStr | 文字列からの変換 | `"Debit".parse::<DebitCredit>()` |
+| Display | 文字列への変換 | `format!("{}", transaction_date)` |
+| as_str() | 文字列表現取得 | `debit_credit.as_str()` |
+
+**実装済み値オブジェクト:**
+- DebitCredit (借方/貸方)
+- Currency (通貨)
+- TaxType (税区分)
+- TransactionDate (取引日付)
+- JournalStatus (仕訳ステータス)
 
 ---
 
@@ -255,6 +303,22 @@ Javelinは以下の4層で構成される。
 | 対象 | 複数Entity横断処理 |
 | 使用条件 | Entityへ属させると不自然な処理 |
 | 制約 | Entity貧血防止 |
+| 実装例 | JournalEntryService (借貸バランス検証、反転仕訳生成) |
+
+---
+
+## 4.6.1 JournalEntryService実装機能
+
+| メソッド | 役割 | 使用箇所 |
+|------------|------------|------------|
+| validate_balance | 借貸バランス検証 | 全仕訳登録処理 |
+| create_reversal_lines | 反転仕訳明細生成 | 取消・反対仕訳登録 |
+| validate_correction | 修正仕訳検証 | 修正仕訳登録 |
+
+**設計原則:**
+- 複数の明細にまたがる処理はドメインサービスで実装
+- アプリケーション層で同様のロジックを実装しない
+- ドメイン知識はドメイン層に集約
 
 ---
 
@@ -325,10 +389,25 @@ Javelinは以下の4層で構成される。
 | 項目 | 禁止内容 |
 |------------|------------|
 | Adapter層 | 業務判断 |
-| Application層 | 業務ルール定義 |
+| Application層 | 業務ルール定義、ドメインロジックの重複実装 |
 | Domain層 | UI依存 / Query最適化 |
 | RepositoryTrait | 検索処理 |
 | Infrastructure層 | 業務判断 |
+| 全層 | Enumの文字列直接比較（FromStr使用）、ユーティリティクラスによるDTO変換 |
+
+---
+
+# 8.1 アンチパターン防止
+
+以下のアンチパターンを避けること:
+
+| アンチパターン | 問題 | 正しい実装 |
+|------------|------------|------------|
+| 文字列でEnum比較 | 型安全性の喪失 | FromStrトレイト使用 |
+| DTO変換ユーティリティクラス | 責務の不明確化 | DTOにTryFrom実装 |
+| ドメインロジックの再実装 | 一貫性喪失 | ドメインサービス呼び出し |
+| 手動での借方貸方反転 | バグ混入リスク | JournalEntryService::create_reversal_lines使用 |
+| format!("{:?}", status) | 表示形式の不安定性 | status.as_str()またはDisplay使用 |
 
 ---
 
@@ -369,3 +448,17 @@ Javelinは以下の4層で構成される。
 | Controller | XxxController |
 | Presenter | XxxPresenter |
 | Repository | XxxEventRepository |
+
+# 11. 命名規則
+
+| 要素 | 命名 |
+|------------|------------|
+| InputPort | XxxUseCase |
+| Interactor | XxxInteractor |
+| QueryService | XxxQueryService |
+| ProjectionBuilder | XxxProjectionBuilder |
+| OutputPort | XxxOutputPort |
+| Controller | XxxController |
+| Presenter | XxxPresenter |
+| Repository | XxxEventRepository |
+| Converter | ~~DtoConverter~~ (削除: TryFromトレイト使用) |
