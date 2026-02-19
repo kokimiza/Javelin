@@ -1,15 +1,17 @@
 // 月次決算確報ドメインモデル
 // financialCloseFinalReport.md 第2章 財務情報基盤に基づく
 
-pub mod cash_log;
-pub mod equity_ledger;
-pub mod general_ledger;
+pub mod accounting_period;
+pub mod closing_events;
+pub mod company;
 pub mod journal_entry;
-pub mod materiality;
-pub mod risk_classification;
+pub mod ledger;
+pub mod values;
 
-use crate::error::{DomainError, DomainResult};
-use crate::value_object::ValueObject;
+use crate::{
+    error::{DomainError, DomainResult},
+    value_object::ValueObject,
+};
 
 /// 決算期間
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,15 +70,11 @@ impl Amount {
     }
 
     pub fn add(&self, other: &Amount) -> Amount {
-        Amount {
-            value: self.value + other.value,
-        }
+        Amount { value: self.value + other.value }
     }
 
     pub fn subtract(&self, other: &Amount) -> Amount {
-        Amount {
-            value: self.value - other.value,
-        }
+        Amount { value: self.value - other.value }
     }
 }
 

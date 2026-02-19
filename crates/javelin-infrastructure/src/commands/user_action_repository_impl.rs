@@ -1,11 +1,11 @@
 // UserActionRepositoryImpl - ユーザ操作記録リポジトリ実装
 // 責務: LMDBへのユーザ操作記録の保存
 
+use std::{path::Path, sync::Arc};
+
 use javelin_domain::repositories::UserActionRepository;
 use lmdb::{Database, DatabaseFlags, Environment, Transaction, WriteFlags};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,10 +38,7 @@ impl UserActionRepositoryImpl {
         // データベース作成
         let db = env.create_db(Some("user_actions"), DatabaseFlags::empty())?;
 
-        Ok(Self {
-            env: Arc::new(env),
-            db,
-        })
+        Ok(Self { env: Arc::new(env), db })
     }
 }
 
@@ -59,13 +56,7 @@ impl UserActionRepository for UserActionRepositoryImpl {
         let location = location.to_string();
         let action = action.to_string();
 
-        let user_action = UserAction {
-            id: action_id.clone(),
-            timestamp,
-            user,
-            location,
-            action,
-        };
+        let user_action = UserAction { id: action_id.clone(), timestamp, user, location, action };
 
         let env = Arc::clone(&self.env);
         let db = self.db;
@@ -91,20 +82,17 @@ impl UserActionRepository for UserActionRepositoryImpl {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use javelin_domain::repositories::UserActionRepository;
     use tempfile::TempDir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_save_action() {
         let temp_dir = TempDir::new().expect("Failed to create temp directory");
-        let repo = UserActionRepositoryImpl::new(temp_dir.path())
-            .await
-            .unwrap();
+        let repo = UserActionRepositoryImpl::new(temp_dir.path()).await.unwrap();
 
-        let result = repo
-            .save_action("test_user", "HomePage", "test action")
-            .await;
+        let result = repo.save_action("test_user", "HomePage", "test action").await;
 
         assert!(result.is_ok());
         let action_id = result.unwrap();
@@ -119,19 +107,11 @@ mod tests {
     #[tokio::test]
     async fn test_multiple_saves() {
         let temp_dir = TempDir::new().expect("Failed to create temp directory");
-        let repo = UserActionRepositoryImpl::new(temp_dir.path())
-            .await
-            .unwrap();
+        let repo = UserActionRepositoryImpl::new(temp_dir.path()).await.unwrap();
 
         // 複数のアクションを保存
-        let id1 = repo
-            .save_action("user1", "HomePage", "action1")
-            .await
-            .unwrap();
-        let id2 = repo
-            .save_action("user2", "SettingsPage", "action2")
-            .await
-            .unwrap();
+        let id1 = repo.save_action("user1", "HomePage", "action1").await.unwrap();
+        let id2 = repo.save_action("user2", "SettingsPage", "action2").await.unwrap();
 
         assert_ne!(id1, id2, "Action IDs should be unique");
     }

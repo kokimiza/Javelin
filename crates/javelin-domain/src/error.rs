@@ -14,16 +14,25 @@ pub enum DomainError {
     #[error("[D-1003] Invalid amount: {0}")]
     InvalidAmount(String),
 
+    #[error("[D-1004] Validation error: {0}")]
+    ValidationError(String),
+
     #[error("[D-2001] Journal entry validation failed: debit and credit must match")]
     JournalEntryValidationFailed,
 
     #[error("[D-2002] Evidence reference is required")]
     EvidenceRequired,
 
+    #[error("[D-2003] Invalid status transition")]
+    InvalidStatusTransition,
+
     #[error("[D-3001] Entity not found: {0}")]
     EntityNotFound(String),
 
-    #[error("[D-3002] Aggregate version conflict")]
+    #[error("[D-3002] Not found: {0}")]
+    NotFound(String),
+
+    #[error("[D-3003] Aggregate version conflict")]
     VersionConflict,
 
     #[error("[D-4001] Serialization failed: {0}")]

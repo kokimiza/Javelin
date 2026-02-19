@@ -47,6 +47,17 @@ pub enum InfrastructureError {
     #[error("[I-5002] Deserialization failed: {0}")]
     DeserializationFailed(String),
 
+    #[error(
+        "[I-6001] Concurrency conflict for aggregate {aggregate_id}: expected version {expected}, but found {actual}"
+    )]
+    ConcurrencyConflict { aggregate_id: String, expected: u64, actual: u64 },
+
+    #[error("[I-7001] Validation failed: {0}")]
+    ValidationFailed(String),
+
+    #[error("[I-8001] Transaction failed: {0}")]
+    TransactionFailed(String),
+
     #[error("[I-9999] Unknown infrastructure error: {0}")]
     Unknown(String),
 }

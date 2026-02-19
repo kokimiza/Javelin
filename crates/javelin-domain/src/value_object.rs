@@ -5,8 +5,9 @@
 // 演算: 業務意味単位で提供
 // ルール: すべてのValueObjectはValueObjectトレイトを実装しなければならない
 
-use crate::error::DomainResult;
 use std::fmt::Debug;
+
+use crate::error::DomainResult;
 
 /// すべてのValueObjectが実装しなければならない基底トレイト
 pub trait ValueObject: Debug + Clone + PartialEq + Eq {

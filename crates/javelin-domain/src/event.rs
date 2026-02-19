@@ -21,12 +21,7 @@ pub struct Event {
 
 impl Event {
     pub fn new(event_type: String, aggregate_id: String, version: u64, payload: Vec<u8>) -> Self {
-        Self {
-            event_type,
-            aggregate_id,
-            version,
-            payload,
-        }
+        Self { event_type, aggregate_id, version, payload }
     }
 
     pub fn payload(&self) -> &[u8] {
