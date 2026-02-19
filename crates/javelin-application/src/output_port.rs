@@ -1,6 +1,16 @@
 // OutputPort - 出力抽象
 // 責務: Presenter連携
 
+use crate::{
+    dtos::{
+        ApproveJournalEntryResponse, CorrectJournalEntryResponse, DeleteDraftJournalEntryResponse,
+        JournalEntryDetail, JournalEntryListResult, LoadAccountMasterResponse,
+        RegisterJournalEntryResponse, RejectJournalEntryResponse, ReverseJournalEntryResponse,
+        SubmitForApprovalResponse, UpdateDraftJournalEntryResponse,
+    },
+    query_service::{LedgerResult, TrialBalanceResult},
+};
+
 /// イベント通知情報
 #[derive(Clone, Debug)]
 pub struct EventNotification {
@@ -52,4 +62,61 @@ pub trait EventOutputPort: Send + Sync {
         &self,
         event: EventNotification,
     ) -> impl std::future::Future<Output = ()> + Send;
+}
+
+/// JournalEntryOutputPort - 仕訳ユースケース結果の出力
+#[allow(async_fn_in_trait)]
+pub trait JournalEntryOutputPort: Send + Sync {
+    /// 仕訳登録結果を出力
+    async fn present_register_result(&self, response: RegisterJournalEntryResponse);
+
+    /// 処理進捗を通知
+    async fn notify_progress(&self, message: String);
+
+    /// エラーを通知
+    async fn notify_error(&self, error_message: String);
+
+    /// 下書き更新結果を出力
+    async fn present_update_draft_result(&self, response: UpdateDraftJournalEntryResponse);
+
+    /// 承認申請結果を出力
+    async fn present_submit_for_approval_result(&self, response: SubmitForApprovalResponse);
+
+    /// 承認結果を出力
+    async fn present_approve_result(&self, response: ApproveJournalEntryResponse);
+
+    /// 差戻し結果を出力
+    async fn present_reject_result(&self, response: RejectJournalEntryResponse);
+
+    /// 取消結果を出力
+    async fn present_reverse_result(&self, response: ReverseJournalEntryResponse);
+
+    /// 修正結果を出力
+    async fn present_correct_result(&self, response: CorrectJournalEntryResponse);
+
+    /// 削除結果を出力
+    async fn present_delete_draft_result(&self, response: DeleteDraftJournalEntryResponse);
+}
+
+/// QueryOutputPort - クエリ結果の出力
+#[allow(async_fn_in_trait)]
+pub trait QueryOutputPort: Send + Sync {
+    /// 仕訳一覧結果を出力
+    async fn present_journal_entry_list(&self, result: JournalEntryListResult);
+
+    /// 仕訳詳細結果を出力
+    async fn present_journal_entry_detail(&self, result: JournalEntryDetail);
+
+    /// 元帳結果を出力
+    async fn present_ledger(&self, result: LedgerResult);
+
+    /// 試算表結果を出力
+    async fn present_trial_balance(&self, result: TrialBalanceResult);
+}
+
+/// AccountMasterOutputPort - 勘定科目マスタ結果の出力
+#[allow(async_fn_in_trait)]
+pub trait AccountMasterOutputPort: Send + Sync {
+    /// 勘定科目マスタ結果を出力
+    async fn present_account_master(&self, response: &LoadAccountMasterResponse);
 }

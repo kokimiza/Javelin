@@ -1,31 +1,38 @@
-// ProjectionBuilder - ReadModel生成
-// 責務: Event → Projection変換
+// ProjectionBuilder - ReadModel生成インターフェース
+// 責務: Event → Projection変換の抽象化
 // 再構築: 全イベント再生で生成可能
 
 use crate::error::ApplicationResult;
 
-pub struct ProjectionBuilder;
+/// ProjectionBuilderトレイト
+///
+/// イベントストリームからRead Modelを構築するコンポーネントのインターフェース。
+/// 具象実装はInfrastructure層で提供される。
+///
+/// 要件: 2.1, 2.2
+#[async_trait::async_trait]
+pub trait ProjectionBuilder: Send + Sync {
+    /// イベントストリームから全Projectionを再構築
+    ///
+    /// EventStoreから全イベントを取得し、各イベントを順次処理して
+    /// ProjectionDBを再構築する。
+    ///
+    /// 要件: 2.1, 2.8
+    ///
+    /// # Returns
+    /// 成功時はOk(())、失敗時はエラー
+    async fn rebuild_all_projections(&self) -> ApplicationResult<()>;
 
-impl ProjectionBuilder {
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// イベントストリームからProjectionを再構築（async）
-    pub async fn rebuild_from_events(&self) -> ApplicationResult<()> {
-        // TODO: Event Stream → Projection DB
-        Ok(())
-    }
-
-    /// 単一イベントからProjectionを更新（async）
-    pub async fn update_from_event(&self, _event_data: &[u8]) -> ApplicationResult<()> {
-        // TODO: Event → Projection更新
-        Ok(())
-    }
-}
-
-impl Default for ProjectionBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+    /// 単一イベントからProjectionを更新
+    ///
+    /// イベント種別に応じて適切なProjection更新メソッドを呼び出す。
+    ///
+    /// 要件: 2.2
+    ///
+    /// # Arguments
+    /// * `event_data` - 処理するイベントのバイト列
+    ///
+    /// # Returns
+    /// 成功時はOk(())、失敗時はエラー
+    async fn process_event(&self, event_data: &[u8]) -> ApplicationResult<()>;
 }

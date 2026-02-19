@@ -1,8 +1,10 @@
 // 4.4 締日固定処理（月次）
 // 目的: 当月の会計データを確定し、改竄防止
 
-use crate::dtos::{LockClosingPeriodRequest, LockClosingPeriodResponse};
-use crate::error::ApplicationResult;
+use crate::{
+    dtos::{LockClosingPeriodRequest, LockClosingPeriodResponse},
+    error::ApplicationResult,
+};
 
 /// 締日固定ユースケース
 #[allow(async_fn_in_trait)]

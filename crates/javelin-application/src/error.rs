@@ -8,6 +8,12 @@ pub enum ApplicationError {
     #[error("[A-1001] Use case execution failed: {0}")]
     UseCaseExecutionFailed(String),
 
+    #[error("[A-1002] Validation failed: {0:?}")]
+    ValidationFailed(Vec<String>),
+
+    #[error("[A-1003] Validation error: {0}")]
+    ValidationError(String),
+
     #[error("[A-2001] Query execution failed: {0}")]
     QueryExecutionFailed(String),
 
