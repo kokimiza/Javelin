@@ -5,7 +5,7 @@ pub mod entity;
 pub mod error;
 pub mod event;
 pub mod financial_close;
+pub mod masters;
 pub mod repositories;
 pub mod service;
-pub mod system_masters;
 pub mod value_object;
