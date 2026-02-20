@@ -15,6 +15,9 @@ pub enum AppError {
         source: std::io::Error,
     },
 
+    #[error("[APP-1003] Feature not implemented: {0}")]
+    NotImplemented(String),
+
     #[error("[APP-2001] Adapter error: {0}")]
     AdapterError(#[from] javelin_adapter::error::AdapterError),
 
