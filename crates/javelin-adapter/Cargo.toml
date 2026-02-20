@@ -7,9 +7,9 @@ license.workspace = true
 
 [dependencies]
 # Internal dependencies
-javelin-domain = { workspace = true }
 javelin-application = { workspace = true }
 javelin-infrastructure = { workspace = true }
+javelin-domain = { workspace = true }
 
 # External dependencies
 thiserror = { workspace = true }
@@ -19,6 +19,9 @@ crossterm = { version = "0.29.0", features = ["event-stream"] }
 color-eyre = { workspace = true }
 chrono = { workspace = true }
 time = { version = "0.3.36", features = ["local-offset", "macros"] }
+uuid = { workspace = true }
+lazy_static = "1.4"
 
 [dev-dependencies]
 tokio-test = { workspace = true }
+async-trait = { workspace = true }

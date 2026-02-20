@@ -63,14 +63,13 @@ pub struct JournalEntryFormPage {
 
 impl JournalEntryFormPage {
     pub fn new() -> Self {
-        let mut layout = FormLayout::new("原始記録登録処理", "F-101", "入力中");
+        let mut layout = FormLayout::new("原始記録登録処理", "F-101", InputMode::Normal);
         layout.event_viewer_mut().add_info("原始記録登録画面を開きました");
-        layout.event_viewer_mut().add_info("伝票番号は自動採番されます");
 
-        // 取引日付のデフォルト値を当日に設定
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        // 取引日付のデフォルト値を当日に設定（8桁の数字形式: YYYYMMDD）
+        let today = chrono::Local::now().format("%Y%m%d").to_string();
 
-        Self {
+        let mut page = Self {
             layout,
             edit_mode: JournalEntryEditMode::default(),
             reference_entry_id: None,
@@ -94,7 +93,11 @@ impl JournalEntryFormPage {
             submit_state: SubmitState::Idle,
             submit_error_message: None,
             loading_spinner: LoadingSpinner::new(),
-        }
+        };
+
+        // 初期フォーカスを設定
+        page.update_focus();
+        page
     }
 
     /// 明細行を追加
@@ -140,6 +143,10 @@ impl JournalEntryFormPage {
         if self.submit_state == SubmitState::Submitting {
             return; // 既に送信中
         }
+
+        // 確定処理開始時にNormalモードに遷移
+        self.input_mode.enter_normal();
+        self.jj_detector.reset();
 
         self.submit_state = SubmitState::Submitting;
         self.submit_error_message = None;
@@ -379,13 +386,18 @@ impl JournalEntryFormPage {
             }
             ModifyInputType::Calendar => {
                 // カレンダー選択モードに入る
-                // TODO: カレンダーコンポーネントの実装が必要
+                self.get_focused_field_mut().start_modify();
                 self.input_mode.enter_modify();
                 self.jj_detector.reset();
-                self.layout.event_viewer_mut().add_info("カレンダーから日付を選択してください");
             }
             ModifyInputType::NumberOnly => {
                 // 数値入力モードに入る
+                self.get_focused_field_mut().start_modify();
+                self.input_mode.enter_modify();
+                self.jj_detector.reset();
+            }
+            ModifyInputType::BooleanToggle => {
+                // Boolean切り替えモードに入る
                 self.get_focused_field_mut().start_modify();
                 self.input_mode.enter_modify();
                 self.jj_detector.reset();
@@ -424,7 +436,15 @@ impl JournalEntryFormPage {
         if let Some(receiver) = &mut self.account_master_receiver
             && let Ok(view_model) = receiver.try_recv()
         {
-            self.set_overlay_data(view_model.headers, view_model.rows);
+            // AccountMasterViewModelをオーバーレイ形式に変換
+            let headers = vec!["コード".to_string(), "名称".to_string()];
+            let rows: Vec<Vec<String>> = view_model
+                .accounts
+                .iter()
+                .map(|a| vec![a.code.clone(), a.name.clone()])
+                .collect();
+
+            self.set_overlay_data(headers, rows);
             self.pending_account_load = false;
         }
     }
@@ -544,7 +564,11 @@ impl JournalEntryFormPage {
 
     /// 非変更モードに戻る（jjで確定）
     pub fn enter_normal_mode(&mut self) {
-        self.get_focused_field_mut().commit_buffer();
+        // バリデーション実行
+        if let Err(error_msg) = self.get_focused_field_mut().commit_buffer() {
+            // エラーメッセージをイベントログに出力
+            self.layout.event_viewer_mut().add_info(format!("入力エラー: {}", error_msg));
+        }
         self.input_mode.enter_normal();
         self.jj_detector.reset();
     }
@@ -685,21 +709,30 @@ impl JournalEntryFormPage {
         self.voucher_field.set_focused(self.focused_field == 1);
         self.risk_field.set_focused(self.focused_field == 2);
 
-        // 現在選択中の明細行のフォーカス更新
+        // タブ内のフィールドにフォーカスがある場合
         if self.focused_field >= 3 && self.focused_field <= 7 {
             let field_index = self.focused_field - 3;
             self.tabbed_form.current_line_mut().update_focus(field_index);
+        } else {
+            // タブ外にフォーカスがある場合、タブ内のすべてのフォーカスをクリア
+            self.tabbed_form.current_line_mut().update_focus(usize::MAX);
         }
     }
 
     /// 描画
     pub fn render(&mut self, frame: &mut Frame) {
+        // フォーカス状態を更新
+        self.update_focus();
+
         let input_mode = self.input_mode;
         let is_overlay_visible = self.overlay_selector.is_visible();
         let is_submitting = self.submit_state == SubmitState::Submitting;
 
         let title = format!("原始記録登録処理 [{}]", self.edit_mode.display_name());
         self.layout.set_title(&title);
+
+        // InputModeをステータスに表示
+        self.layout.set_status(input_mode);
 
         // フッターテキストを作成
         let footer_text = Some(Line::from(vec![

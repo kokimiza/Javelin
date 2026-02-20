@@ -1,19 +1,29 @@
-// AccountMasterPresenter - 勘定科目マスタPresenter
-// 責務: 勘定科目マスタデータをビュー用に整形
+// AccountMasterPresenter実装
+// 勘定科目マスタの出力を整形してビューに渡す
 
-use javelin_application::{dtos::LoadAccountMasterResponse, output_port::AccountMasterOutputPort};
+use javelin_application::{
+    dtos::response::LoadAccountMasterResponse, output_port::AccountMasterOutputPort,
+};
 use tokio::sync::mpsc;
 
-/// 勘定科目マスタのビューモデル
+/// 勘定科目マスタViewModel
 #[derive(Debug, Clone)]
 pub struct AccountMasterViewModel {
-    pub headers: Vec<String>,
-    pub rows: Vec<Vec<String>>,
+    pub accounts: Vec<AccountMasterItemViewModel>,
+}
+
+/// 勘定科目マスタ項目ViewModel
+#[derive(Debug, Clone)]
+pub struct AccountMasterItemViewModel {
+    pub code: String,
+    pub name: String,
+    pub account_type: String,
+    pub account_type_label: String,
 }
 
 /// 勘定科目マスタPresenter
+#[derive(Clone)]
 pub struct AccountMasterPresenter {
-    /// データ更新通知チャネル
     sender: mpsc::UnboundedSender<AccountMasterViewModel>,
 }
 
@@ -29,44 +39,36 @@ impl AccountMasterPresenter {
     ) {
         mpsc::unbounded_channel()
     }
+
+    fn format_account_type_label(account_type: &str) -> String {
+        match account_type {
+            "Asset" => "資産",
+            "Liability" => "負債",
+            "Equity" => "純資産",
+            "Revenue" => "収益",
+            "Expense" => "費用",
+            _ => account_type,
+        }
+        .to_string()
+    }
 }
 
 #[allow(async_fn_in_trait)]
 impl AccountMasterOutputPort for AccountMasterPresenter {
     async fn present_account_master(&self, response: &LoadAccountMasterResponse) {
-        // ヘッダー
-        let headers = vec!["コード".to_string(), "科目名".to_string(), "区分".to_string()];
-
-        // データ行
-        let rows: Vec<Vec<String>> = response
+        let accounts = response
             .accounts
             .iter()
-            .map(|acc| {
-                vec![
-                    acc.code.clone(),
-                    acc.name.clone(),
-                    Self::format_account_type(&acc.account_type),
-                ]
+            .map(|item| AccountMasterItemViewModel {
+                code: item.code.clone(),
+                name: item.name.clone(),
+                account_type: item.account_type.clone(),
+                account_type_label: Self::format_account_type_label(&item.account_type),
             })
             .collect();
 
-        let view_model = AccountMasterViewModel { headers, rows };
+        let view_model = AccountMasterViewModel { accounts };
 
-        // チャネル経由で通知（失敗しても無視）
         let _ = self.sender.send(view_model);
-    }
-}
-
-impl AccountMasterPresenter {
-    /// 科目タイプを日本語に変換
-    fn format_account_type(account_type: &str) -> String {
-        match account_type {
-            "Asset" => "資産".to_string(),
-            "Liability" => "負債".to_string(),
-            "Equity" => "純資産".to_string(),
-            "Revenue" => "収益".to_string(),
-            "Expense" => "費用".to_string(),
-            _ => account_type.to_string(),
-        }
     }
 }

@@ -16,20 +16,16 @@ use crate::{input_mode::InputMode, views::components::EventViewer};
 pub struct FormLayout {
     title: String,
     form_code: String,
-    status: String,
+    status: InputMode,
     event_viewer: EventViewer,
 }
 
 impl FormLayout {
-    pub fn new(
-        title: impl Into<String>,
-        form_code: impl Into<String>,
-        status: impl Into<String>,
-    ) -> Self {
+    pub fn new(title: impl Into<String>, form_code: impl Into<String>, status: InputMode) -> Self {
         Self {
             title: title.into(),
             form_code: form_code.into(),
-            status: status.into(),
+            status,
             event_viewer: EventViewer::new(),
         }
     }
@@ -41,6 +37,11 @@ impl FormLayout {
     /// タイトルを設定
     pub fn set_title(&mut self, title: impl Into<String>) {
         self.title = title.into();
+    }
+
+    /// ステータスを設定
+    pub fn set_status(&mut self, status: InputMode) {
+        self.status = status;
     }
 
     /// レイアウトを描画（左62%フォーム、右38%イベントビューア+カレンダー）
@@ -106,7 +107,7 @@ impl FormLayout {
         // ステータス行
         let status_line = Line::from(vec![
             Span::styled("状態: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(&self.status, Style::default().fg(Color::Green)),
+            Span::styled(self.status.name(), Style::default().fg(Color::Green)),
         ]);
 
         let status = Paragraph::new(status_line)

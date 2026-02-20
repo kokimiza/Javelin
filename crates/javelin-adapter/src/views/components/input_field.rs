@@ -23,6 +23,8 @@ pub struct InputField {
     input_type: ModifyInputType,
     // 一時入力バッファ（MODIFYモード中の入力）
     temp_buffer: String,
+    // BooleanToggle用の表示ラベル（true時, false時）
+    boolean_labels: Option<(String, String)>,
 }
 
 impl InputField {
@@ -37,6 +39,7 @@ impl InputField {
             max_length: None,
             input_type: ModifyInputType::Direct,
             temp_buffer: String::new(),
+            boolean_labels: None,
         }
     }
 
@@ -88,6 +91,15 @@ impl InputField {
         self
     }
 
+    pub fn with_boolean_labels(
+        mut self,
+        true_label: impl Into<String>,
+        false_label: impl Into<String>,
+    ) -> Self {
+        self.boolean_labels = Some((true_label.into(), false_label.into()));
+        self
+    }
+
     pub fn input_type(&self) -> ModifyInputType {
         self.input_type
     }
@@ -118,6 +130,21 @@ impl InputField {
 
     /// 一時バッファに文字を追加
     pub fn append_to_buffer(&mut self, ch: char) {
+        // BooleanToggle: スペースキーで切り替え
+        if self.input_type == ModifyInputType::BooleanToggle && ch == ' ' {
+            self.toggle_boolean();
+            return;
+        }
+
+        // Calendar入力タイプの場合は8桁まで
+        if self.input_type == ModifyInputType::Calendar {
+            if self.temp_buffer.len() < 8 {
+                self.temp_buffer.push(ch);
+            }
+            return;
+        }
+
+        // その他の入力タイプ
         if let Some(max_len) = self.max_length {
             // 文字数（バイト数ではない）でチェック
             if self.temp_buffer.chars().count() < max_len {
@@ -126,6 +153,12 @@ impl InputField {
         } else {
             self.temp_buffer.push(ch);
         }
+    }
+
+    /// Boolean値を切り替え
+    fn toggle_boolean(&mut self) {
+        let current_value = self.temp_buffer == "true";
+        self.temp_buffer = if current_value { "false" } else { "true" }.to_string();
     }
 
     /// 一時バッファから文字を削除
@@ -139,13 +172,35 @@ impl InputField {
     }
 
     /// jjで確定：一時バッファを値に反映
-    pub fn commit_buffer(&mut self) {
+    pub fn commit_buffer(&mut self) -> Result<(), String> {
+        // Calendar入力タイプの場合はバリデーション
+        if self.input_type == ModifyInputType::Calendar {
+            let (valid, error_msg) = ModifyInputType::validate_date_input(&self.temp_buffer);
+            if !valid {
+                return Err(error_msg.unwrap_or("入力エラー").to_string());
+            }
+        }
+
         self.value = self.temp_buffer.clone();
+        Ok(())
     }
 
     /// ESCでクリア：一時バッファを破棄
     pub fn clear_buffer(&mut self) {
         self.temp_buffer.clear();
+    }
+
+    /// Boolean値を表示用にフォーマット
+    fn format_boolean_display(&self, value: &str) -> String {
+        if let Some((true_label, false_label)) = &self.boolean_labels {
+            if value == "true" {
+                true_label.clone()
+            } else {
+                false_label.clone()
+            }
+        } else {
+            value.to_string()
+        }
     }
 
     /// 描画
@@ -184,21 +239,37 @@ impl InputField {
             if self.temp_buffer.is_empty() && !self.placeholder.is_empty() {
                 self.placeholder.to_string()
             } else {
-                // NumberOnlyの場合は編集中もカンマ区切りで表示
-                if self.input_type == ModifyInputType::NumberOnly && !self.temp_buffer.is_empty() {
-                    Self::format_number_with_commas(&self.temp_buffer)
-                } else {
-                    self.temp_buffer.clone()
+                match self.input_type {
+                    // NumberOnlyの場合は編集中もカンマ区切りで表示
+                    ModifyInputType::NumberOnly if !self.temp_buffer.is_empty() => {
+                        Self::format_number_with_commas(&self.temp_buffer)
+                    }
+                    // Calendarの場合は編集中もYYYY-MM-DD形式で表示
+                    ModifyInputType::Calendar if !self.temp_buffer.is_empty() => {
+                        ModifyInputType::format_date_input(&self.temp_buffer)
+                    }
+                    // BooleanToggleの場合はラベルで表示
+                    ModifyInputType::BooleanToggle => {
+                        self.format_boolean_display(&self.temp_buffer)
+                    }
+                    _ => self.temp_buffer.clone(),
                 }
             }
         } else if self.value.is_empty() && !self.placeholder.is_empty() {
             self.placeholder.to_string()
         } else {
-            // NumberOnlyの場合はカンマ区切りで表示
-            if self.input_type == ModifyInputType::NumberOnly && !self.value.is_empty() {
-                Self::format_number_with_commas(&self.value)
-            } else {
-                self.value.clone()
+            match self.input_type {
+                // NumberOnlyの場合はカンマ区切りで表示
+                ModifyInputType::NumberOnly if !self.value.is_empty() => {
+                    Self::format_number_with_commas(&self.value)
+                }
+                // Calendarの場合はYYYY-MM-DD形式で表示
+                ModifyInputType::Calendar if !self.value.is_empty() => {
+                    ModifyInputType::format_date_input(&self.value)
+                }
+                // BooleanToggleの場合はラベルで表示
+                ModifyInputType::BooleanToggle => self.format_boolean_display(&self.value),
+                _ => self.value.clone(),
             }
         };
 
@@ -217,7 +288,6 @@ impl InputField {
             .style(input_style)
             .block(Block::default().borders(Borders::ALL));
 
-        // 簡易的に上下に配置
         let chunks = ratatui::layout::Layout::default()
             .direction(ratatui::layout::Direction::Vertical)
             .constraints([

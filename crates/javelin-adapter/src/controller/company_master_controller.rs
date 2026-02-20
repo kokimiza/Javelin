@@ -1,23 +1,23 @@
-// AccountMasterController - 勘定科目マスタコントローラ
+// CompanyMasterController - 会社マスタコントローラ
 
 use std::sync::Arc;
 
 use javelin_application::{
-    dtos::{request::LoadAccountMasterRequest, response::LoadAccountMasterResponse},
-    input_ports::LoadAccountMasterInputPort,
-    interactor::master_data::LoadAccountMasterInteractor,
+    dtos::{request::LoadCompanyMasterRequest, response::LoadCompanyMasterResponse},
+    input_ports::LoadCompanyMasterInputPort,
+    interactor::master_data::LoadCompanyMasterInteractor,
 };
 use javelin_infrastructure::queries::master_data_loader_impl::MasterDataLoaderImpl;
 
 use crate::navigation::PresenterRegistry;
 
-/// 勘定科目マスタコントローラ
-pub struct AccountMasterController {
+/// 会社マスタコントローラ
+pub struct CompanyMasterController {
     query_service: Arc<MasterDataLoaderImpl>,
     presenter_registry: Arc<PresenterRegistry>,
 }
 
-impl AccountMasterController {
+impl CompanyMasterController {
     pub fn new(
         query_service: Arc<MasterDataLoaderImpl>,
         presenter_registry: Arc<PresenterRegistry>,
@@ -30,29 +30,29 @@ impl AccountMasterController {
         &self.presenter_registry
     }
 
-    /// 勘定科目マスタを取得
-    pub async fn handle_load_account_master(
+    /// 会社マスタを取得
+    pub async fn handle_load_company_master(
         &self,
         page_id: uuid::Uuid,
-        request: LoadAccountMasterRequest,
-    ) -> Result<LoadAccountMasterResponse, String> {
+        request: LoadCompanyMasterRequest,
+    ) -> Result<LoadCompanyMasterResponse, String> {
         // PresenterRegistryからpage_id用のPresenterを取得
-        if let Some(account_master_presenter_arc) =
-            self.presenter_registry.get_account_master_presenter(page_id)
+        if let Some(company_master_presenter_arc) =
+            self.presenter_registry.get_company_master_presenter(page_id)
         {
             // ArcからPresenterをclone
-            let account_master_presenter = (*account_master_presenter_arc).clone();
+            let company_master_presenter = (*company_master_presenter_arc).clone();
 
             // このページ専用のInteractorを動的に作成
-            let interactor = LoadAccountMasterInteractor::new(
+            let interactor = LoadCompanyMasterInteractor::new(
                 Arc::clone(&self.query_service),
-                account_master_presenter,
+                company_master_presenter,
             );
 
             // 実行
             interactor.execute(request).await.map_err(|e| e.to_string())
         } else {
-            Err(format!("AccountMasterPresenter not found for page_id: {}", page_id))
+            Err(format!("CompanyMasterPresenter not found for page_id: {}", page_id))
         }
     }
 }

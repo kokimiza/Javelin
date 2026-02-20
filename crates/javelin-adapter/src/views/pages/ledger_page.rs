@@ -116,6 +116,21 @@ impl LedgerPage {
     pub fn selected_index(&self) -> Option<usize> {
         self.ledger_table.selected_index()
     }
+    /// 選択中のエントリを取得
+    pub fn get_selected_entry(&self) -> Option<&crate::presenter::LedgerEntryViewModel> {
+        let index = self.selected_index()?;
+        self.current_ledger.as_ref()?.entries.get(index)
+    }
+
+    /// 勘定科目コードを取得
+    pub fn get_account_code(&self) -> Option<String> {
+        self.current_ledger.as_ref().map(|l| l.account_code.clone())
+    }
+
+    /// 勘定科目名を取得
+    pub fn get_account_name(&self) -> Option<String> {
+        self.current_ledger.as_ref().map(|l| l.account_name.clone())
+    }
 
     /// アニメーションフレームを進める
     pub fn tick(&mut self) {

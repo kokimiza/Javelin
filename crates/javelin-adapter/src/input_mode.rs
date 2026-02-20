@@ -18,10 +18,12 @@ pub enum ModifyInputType {
     Direct,
     /// オーバーレイリスト - 画面の8割をオーバーレイして選択肢を表示
     OverlayList,
-    /// カレンダー - 日付選択用のカレンダー表示
+    /// カレンダー - 日付入力（YYYY-MM-DD形式、2000年代のみ、バリデーション付き）
     Calendar,
     /// 数値のみ - 数字とピリオドのみ入力可能
     NumberOnly,
+    /// 二値切り替え - スペースキーでtrue/falseを切り替え
+    BooleanToggle,
 }
 
 impl ModifyInputType {
@@ -32,6 +34,7 @@ impl ModifyInputType {
             ModifyInputType::OverlayList => "リスト選択",
             ModifyInputType::Calendar => "カレンダー",
             ModifyInputType::NumberOnly => "数値入力",
+            ModifyInputType::BooleanToggle => "切替",
         }
     }
 
@@ -40,13 +43,98 @@ impl ModifyInputType {
         match self {
             ModifyInputType::Direct => true,
             ModifyInputType::OverlayList => false, // リスト選択のみ
-            ModifyInputType::Calendar => false,    // カレンダー選択のみ
+            ModifyInputType::Calendar => ch.is_ascii_digit(), // 数字のみ入力可能
             ModifyInputType::NumberOnly => {
                 // 0-9の数字のみ許可（カンマは自動表示するため入力不可）
                 ch.is_ascii_digit()
             }
+            ModifyInputType::BooleanToggle => ch == ' ', // スペースキーのみ
         }
     }
+
+    /// 日付入力のバリデーション（Calendar用）
+    /// 入力: 8桁の数字文字列（YYYYMMDD）
+    /// 戻り値: (バリデーション成功, エラーメッセージ)
+    pub fn validate_date_input(input: &str) -> (bool, Option<&'static str>) {
+        // 8桁チェック
+        if input.len() != 8 {
+            return (false, Some("8桁で入力してください"));
+        }
+
+        // 数字のみチェック
+        if !input.chars().all(|c| c.is_ascii_digit()) {
+            return (false, Some("数字のみ入力可能です"));
+        }
+
+        // 年月日を抽出
+        let year: u32 = match input[0..4].parse() {
+            Ok(y) => y,
+            Err(_) => return (false, Some("年が不正です")),
+        };
+        let month: u32 = match input[4..6].parse() {
+            Ok(m) => m,
+            Err(_) => return (false, Some("月が不正です")),
+        };
+        let day: u32 = match input[6..8].parse() {
+            Ok(d) => d,
+            Err(_) => return (false, Some("日が不正です")),
+        };
+
+        // 年チェック（2000年代のみ）
+        if !(2000..3000).contains(&year) {
+            return (false, Some("2000年代の日付を入力してください"));
+        }
+
+        // 月チェック（1-12）
+        if !(1..=12).contains(&month) {
+            return (false, Some("月は01-12の範囲で入力してください"));
+        }
+
+        // 日チェック
+        let max_day = days_in_month(year, month);
+        if day < 1 || day > max_day {
+            return (false, Some("日が月の範囲を超えています"));
+        }
+
+        (true, None)
+    }
+
+    /// 日付入力を表示用にフォーマット（YYYY-MM-DD）
+    pub fn format_date_input(input: &str) -> String {
+        let len = input.len();
+
+        if len <= 4 {
+            // 4桁以下: そのまま表示
+            input.to_string()
+        } else if len <= 6 {
+            // 5-6桁: YYYY-MM
+            format!("{}-{}", &input[0..4], &input[4..])
+        } else {
+            // 7-8桁: YYYY-MM-DD
+            format!("{}-{}-{}", &input[0..4], &input[4..6], &input[6..])
+        }
+    }
+}
+
+/// 指定された年月の日数を返す（うるう年考慮）
+fn days_in_month(year: u32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if is_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
+        _ => 0,
+    }
+}
+
+/// うるう年判定
+fn is_leap_year(year: u32) -> bool {
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 /// 仕訳編集区分
@@ -242,9 +330,10 @@ mod tests {
         assert!(!ModifyInputType::OverlayList.is_char_allowed('a'));
         assert!(!ModifyInputType::OverlayList.is_char_allowed('1'));
 
-        // Calendar: 文字入力は許可されない
+        // Calendar: 数字のみ許可
         assert!(!ModifyInputType::Calendar.is_char_allowed('a'));
-        assert!(!ModifyInputType::Calendar.is_char_allowed('1'));
+        assert!(ModifyInputType::Calendar.is_char_allowed('1'));
+        assert!(!ModifyInputType::Calendar.is_char_allowed('-'));
 
         // NumberOnly: 0-9の数字のみ許可（カンマ、ピリオド、マイナスは不可）
         assert!(ModifyInputType::NumberOnly.is_char_allowed('0'));
@@ -254,6 +343,95 @@ mod tests {
         assert!(!ModifyInputType::NumberOnly.is_char_allowed(','));
         assert!(!ModifyInputType::NumberOnly.is_char_allowed('a'));
         assert!(!ModifyInputType::NumberOnly.is_char_allowed('あ'));
+    }
+
+    #[test]
+    fn test_validate_date_input() {
+        // 正常な日付
+        assert!(ModifyInputType::validate_date_input("20240315").0);
+        assert!(ModifyInputType::validate_date_input("20000101").0);
+        assert!(ModifyInputType::validate_date_input("29991231").0);
+
+        // うるう年
+        assert!(ModifyInputType::validate_date_input("20240229").0); // 2024年はうるう年
+        assert!(!ModifyInputType::validate_date_input("20230229").0); // 2023年は平年
+        assert!(ModifyInputType::validate_date_input("20000229").0); // 2000年はうるう年
+        assert!(!ModifyInputType::validate_date_input("21000229").0); // 2100年は平年
+
+        // 桁数エラー
+        assert!(!ModifyInputType::validate_date_input("2024031").0);
+        assert!(!ModifyInputType::validate_date_input("202403155").0);
+
+        // 数字以外
+        assert!(!ModifyInputType::validate_date_input("2024-03-15").0);
+        assert!(!ModifyInputType::validate_date_input("abcd0315").0);
+
+        // 年の範囲外
+        assert!(!ModifyInputType::validate_date_input("19991231").0);
+        assert!(!ModifyInputType::validate_date_input("30000101").0);
+
+        // 月の範囲外
+        assert!(!ModifyInputType::validate_date_input("20240015").0);
+        assert!(!ModifyInputType::validate_date_input("20241315").0);
+
+        // 日の範囲外
+        assert!(!ModifyInputType::validate_date_input("20240100").0);
+        assert!(!ModifyInputType::validate_date_input("20240132").0);
+        assert!(!ModifyInputType::validate_date_input("20240431").0); // 4月は30日まで
+        assert!(!ModifyInputType::validate_date_input("20230229").0); // 平年の2月は28日まで
+    }
+
+    #[test]
+    fn test_format_date_input() {
+        assert_eq!(ModifyInputType::format_date_input("2"), "2");
+        assert_eq!(ModifyInputType::format_date_input("20"), "20");
+        assert_eq!(ModifyInputType::format_date_input("202"), "202");
+        assert_eq!(ModifyInputType::format_date_input("2024"), "2024");
+        assert_eq!(ModifyInputType::format_date_input("20240"), "2024-0");
+        assert_eq!(ModifyInputType::format_date_input("202403"), "2024-03");
+        assert_eq!(ModifyInputType::format_date_input("2024031"), "2024-03-1");
+        assert_eq!(ModifyInputType::format_date_input("20240315"), "2024-03-15");
+        assert_eq!(ModifyInputType::format_date_input("20260220"), "2026-02-20");
+    }
+
+    #[test]
+    fn test_days_in_month() {
+        // 31日の月
+        assert_eq!(days_in_month(2024, 1), 31);
+        assert_eq!(days_in_month(2024, 3), 31);
+        assert_eq!(days_in_month(2024, 5), 31);
+        assert_eq!(days_in_month(2024, 7), 31);
+        assert_eq!(days_in_month(2024, 8), 31);
+        assert_eq!(days_in_month(2024, 10), 31);
+        assert_eq!(days_in_month(2024, 12), 31);
+
+        // 30日の月
+        assert_eq!(days_in_month(2024, 4), 30);
+        assert_eq!(days_in_month(2024, 6), 30);
+        assert_eq!(days_in_month(2024, 9), 30);
+        assert_eq!(days_in_month(2024, 11), 30);
+
+        // 2月（うるう年）
+        assert_eq!(days_in_month(2024, 2), 29);
+        assert_eq!(days_in_month(2000, 2), 29);
+
+        // 2月（平年）
+        assert_eq!(days_in_month(2023, 2), 28);
+        assert_eq!(days_in_month(2100, 2), 28);
+    }
+
+    #[test]
+    fn test_is_leap_year() {
+        // うるう年
+        assert!(is_leap_year(2024));
+        assert!(is_leap_year(2000));
+        assert!(is_leap_year(2400));
+
+        // 平年
+        assert!(!is_leap_year(2023));
+        assert!(!is_leap_year(2100));
+        assert!(!is_leap_year(2200));
+        assert!(!is_leap_year(2300));
     }
 
     #[test]

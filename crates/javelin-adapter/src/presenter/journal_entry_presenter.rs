@@ -118,6 +118,7 @@ impl JournalEntryViewModel {
 }
 
 /// 仕訳登録Presenter
+#[derive(Clone)]
 pub struct JournalEntryPresenter {
     list_sender: mpsc::UnboundedSender<JournalEntryListViewModel>,
     detail_sender: mpsc::UnboundedSender<JournalEntryDetailViewModel>,

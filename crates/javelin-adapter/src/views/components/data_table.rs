@@ -15,6 +15,8 @@ use super::LoadingSpinner;
 pub enum DataTableState {
     /// ローディング中
     Loading,
+    /// 進捗メッセージ付きローディング中
+    LoadingWithProgress(String),
     /// データ表示中
     Showing,
     /// エラー
@@ -67,6 +69,11 @@ impl DataTable {
         self.state = DataTableState::Loading;
     }
 
+    /// 進捗メッセージ付きローディング状態に設定
+    pub fn set_loading_progress(&mut self, message: String) {
+        self.state = DataTableState::LoadingWithProgress(message);
+    }
+
     /// データを設定
     pub fn set_data(&mut self, rows: Vec<Vec<String>>) {
         self.rows = rows;
@@ -80,7 +87,7 @@ impl DataTable {
 
     /// ローディングアニメーションを更新
     pub fn tick_loading(&mut self) {
-        if matches!(self.state, DataTableState::Loading) {
+        if matches!(self.state, DataTableState::Loading | DataTableState::LoadingWithProgress(_)) {
             self.loading_spinner.tick();
         }
     }
@@ -132,14 +139,15 @@ impl DataTable {
     /// 描画
     pub fn render(&mut self, frame: &mut Frame, area: Rect) {
         match &self.state {
-            DataTableState::Loading => self.render_loading(frame, area),
+            DataTableState::Loading => self.render_loading(frame, area, "データ読み込み中..."),
+            DataTableState::LoadingWithProgress(msg) => self.render_loading(frame, area, msg),
             DataTableState::Showing => self.render_table(frame, area),
             DataTableState::Error(msg) => self.render_error(frame, area, msg),
         }
     }
 
     /// ローディング画面を描画
-    fn render_loading(&self, frame: &mut Frame, area: Rect) {
+    fn render_loading(&self, frame: &mut Frame, area: Rect, message: &str) {
         // 外枠を描画
         let block = Block::default()
             .title(self.title.as_str())
@@ -152,7 +160,7 @@ impl DataTable {
 
         // 内側にスピナーを描画
         let inner = area.inner(ratatui::layout::Margin { horizontal: 1, vertical: 1 });
-        self.loading_spinner.render(frame, inner, "データ読み込み中...");
+        self.loading_spinner.render(frame, inner, message);
     }
 
     /// エラー画面を描画
