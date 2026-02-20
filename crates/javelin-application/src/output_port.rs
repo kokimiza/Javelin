@@ -2,11 +2,13 @@
 // 責務: Presenter連携
 
 use crate::{
-    dtos::{
+    dtos::response::{
         ApproveJournalEntryResponse, CorrectJournalEntryResponse, DeleteDraftJournalEntryResponse,
-        JournalEntryDetail, JournalEntryListResult, LoadAccountMasterResponse,
-        RegisterJournalEntryResponse, RejectJournalEntryResponse, ReverseJournalEntryResponse,
-        SubmitForApprovalResponse, UpdateDraftJournalEntryResponse,
+        JournalEntryDetail, JournalEntryListResult, JournalEntrySearchResultDto,
+        LoadAccountMasterResponse, LoadApplicationSettingsResponse, LoadCompanyMasterResponse,
+        LoadSubsidiaryAccountMasterResponse, RegisterJournalEntryResponse,
+        RejectJournalEntryResponse, ReverseJournalEntryResponse, SubmitForApprovalResponse,
+        UpdateDraftJournalEntryResponse,
     },
     query_service::{LedgerResult, TrialBalanceResult},
 };
@@ -119,4 +121,46 @@ pub trait QueryOutputPort: Send + Sync {
 pub trait AccountMasterOutputPort: Send + Sync {
     /// 勘定科目マスタ結果を出力
     async fn present_account_master(&self, response: &LoadAccountMasterResponse);
+}
+
+/// CompanyMasterOutputPort - 会社マスタ結果の出力
+#[allow(async_fn_in_trait)]
+pub trait CompanyMasterOutputPort: Send + Sync {
+    /// 会社マスタ結果を出力
+    async fn present_company_master(&self, response: &LoadCompanyMasterResponse);
+}
+
+/// ApplicationSettingsOutputPort - アプリケーション設定結果の出力
+#[allow(async_fn_in_trait)]
+pub trait ApplicationSettingsOutputPort: Send + Sync {
+    /// アプリケーション設定結果を出力
+    async fn present_application_settings(&self, response: &LoadApplicationSettingsResponse);
+}
+
+/// SubsidiaryAccountMasterOutputPort - 補助科目マスタ結果の出力
+#[allow(async_fn_in_trait)]
+pub trait SubsidiaryAccountMasterOutputPort: Send + Sync {
+    /// 補助科目マスタ結果を出力
+    async fn present_subsidiary_account_master(
+        &self,
+        response: &LoadSubsidiaryAccountMasterResponse,
+    );
+}
+
+/// SearchOutputPort - 仕訳検索結果の出力
+pub trait SearchOutputPort: Send + Sync {
+    /// 検索結果を出力
+    fn present_search_result(&self, result: JournalEntrySearchResultDto);
+
+    /// バリデーションエラーを出力
+    fn present_validation_error(&self, message: String);
+
+    /// 検索結果0件を出力
+    fn present_no_results(&self);
+
+    /// 進捗状況を出力
+    fn present_progress(&self, message: String);
+
+    /// 実行時間を出力（ミリ秒）
+    fn present_execution_time(&self, elapsed_ms: usize);
 }

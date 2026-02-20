@@ -2,12 +2,11 @@
 // 責務: アプリケーション起動時の初期データロード
 // 禁止: Repository利用（Projectionのみ）
 
-use javelin_domain::system_masters::{
+use javelin_domain::masters::{
     AccountCode, AccountMaster as DomainAccountMaster, AccountName,
-    AccountType as DomainAccountType, BackupRetentionDays, ClosingDay, CompanyCode,
-    CompanyMaster as DomainCompanyMaster, CompanyName, DateFormat, DecimalPlaces,
-    FiscalYearStartMonth, Language, SystemSettings as DomainSystemSettings,
-    UserSettings as DomainUserSettings,
+    AccountType as DomainAccountType, ApplicationSettings as DomainApplicationSettings,
+    BackupRetentionDays, ClosingDay, CompanyCode, CompanyMaster as DomainCompanyMaster,
+    CompanyName, DateFormat, DecimalPlaces, FiscalYearStartMonth, Language,
 };
 use serde::{Deserialize, Serialize};
 
@@ -140,8 +139,8 @@ impl From<&DomainCompanyMaster> for CompanyMaster {
     }
 }
 
-impl From<&DomainUserSettings> for UserOptions {
-    fn from(domain: &DomainUserSettings) -> Self {
+impl From<&DomainApplicationSettings> for UserOptions {
+    fn from(domain: &DomainApplicationSettings) -> Self {
         Self {
             default_company_code: domain.default_company_code().map(|c| c.value().to_string()),
             language: domain.language().value().to_string(),
@@ -151,8 +150,8 @@ impl From<&DomainUserSettings> for UserOptions {
     }
 }
 
-impl From<&DomainSystemSettings> for SystemSettings {
-    fn from(domain: &DomainSystemSettings) -> Self {
+impl From<&DomainApplicationSettings> for SystemSettings {
+    fn from(domain: &DomainApplicationSettings) -> Self {
         Self {
             fiscal_year_start_month: domain.fiscal_year_start_month().value(),
             closing_day: domain.closing_day().value(),
@@ -197,46 +196,43 @@ impl TryFrom<&CompanyMaster> for DomainCompanyMaster {
     }
 }
 
-impl TryFrom<&UserOptions> for DomainUserSettings {
-    type Error = crate::error::ApplicationError;
+// Helper function to convert DTOs to domain object
+pub fn to_application_settings(
+    user_opts: &UserOptions,
+    sys_settings: &SystemSettings,
+) -> Result<DomainApplicationSettings, crate::error::ApplicationError> {
+    let default_company_code = user_opts
+        .default_company_code
+        .as_ref()
+        .map(|code| {
+            CompanyCode::new(code)
+                .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))
+        })
+        .transpose()?;
 
-    fn try_from(dto: &UserOptions) -> Result<Self, Self::Error> {
-        let default_company_code = dto
-            .default_company_code
-            .as_ref()
-            .map(|code| {
-                CompanyCode::new(code)
-                    .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))
-            })
-            .transpose()?;
+    let language = Language::new(&user_opts.language)
+        .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
+    let decimal_places = DecimalPlaces::new(user_opts.decimal_places)
+        .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
+    let date_format = DateFormat::new(&user_opts.date_format)
+        .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
 
-        let language = Language::new(&dto.language)
+    let fiscal_year_start_month =
+        FiscalYearStartMonth::new(sys_settings.fiscal_year_start_month)
             .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
-        let decimal_places = DecimalPlaces::new(dto.decimal_places)
-            .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
-        let date_format = DateFormat::new(&dto.date_format)
-            .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
+    let closing_day = ClosingDay::new(sys_settings.closing_day)
+        .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
+    let backup_retention_days = BackupRetentionDays::new(sys_settings.backup_retention_days)
+        .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
 
-        Ok(Self::new(default_company_code, language, decimal_places, date_format))
-    }
-}
-
-impl TryFrom<&SystemSettings> for DomainSystemSettings {
-    type Error = crate::error::ApplicationError;
-
-    fn try_from(dto: &SystemSettings) -> Result<Self, Self::Error> {
-        let fiscal_year_start_month = FiscalYearStartMonth::new(dto.fiscal_year_start_month)
-            .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
-        let closing_day = ClosingDay::new(dto.closing_day)
-            .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
-        let backup_retention_days = BackupRetentionDays::new(dto.backup_retention_days)
-            .map_err(|e| crate::error::ApplicationError::ValidationError(e.to_string()))?;
-
-        Ok(Self::new(
-            fiscal_year_start_month,
-            closing_day,
-            dto.auto_backup_enabled,
-            backup_retention_days,
-        ))
-    }
+    Ok(DomainApplicationSettings::new(
+        default_company_code,
+        language,
+        decimal_places,
+        date_format,
+        fiscal_year_start_month,
+        closing_day,
+        sys_settings.auto_backup_enabled,
+        backup_retention_days,
+    ))
 }

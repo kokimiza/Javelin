@@ -59,11 +59,6 @@ impl<R: EventRepository, E: EventOutputPort, O: JournalEntryOutputPort, V: Vouch
             ))
             .await;
 
-        // 進捗通知: 入力検証開始
-        self.output_port
-            .notify_progress("入力データを検証しています...".to_string())
-            .await;
-
         // 1. 入力バリデーション - 取引日付のパース
         let transaction_date =
             match NaiveDate::parse_from_str(&request.transaction_date, "%Y-%m-%d") {
@@ -85,19 +80,22 @@ impl<R: EventRepository, E: EventOutputPort, O: JournalEntryOutputPort, V: Vouch
             }
         };
 
+        // 進捗通知: 入力検証完了
+        self.output_port.notify_progress("入力データを検証しました".to_string()).await;
+
         // 2. 証憑番号の作成（空の場合は自動生成）
         let voucher_number_str = if request.voucher_number.is_empty() {
             // 取引日付から年度を取得（簡易的に年を使用）
             let fiscal_year = transaction_date.value().year() as u32;
 
-            self.output_port
-                .notify_progress("伝票番号を自動生成しています...".to_string())
-                .await;
-
             match self.voucher_generator.generate_next(fiscal_year).await {
-                Ok(vn) => vn,
+                Ok(vn) => {
+                    // 進捗通知: 伝票番号採番完了
+                    self.output_port.notify_progress("伝票番号を採番しました".to_string()).await;
+                    vn
+                }
                 Err(e) => {
-                    let error_msg = format!("伝票番号の自動生成に失敗しました: {}", e);
+                    let error_msg = format!("伝票番号の採番に失敗しました: {}", e);
                     self.output_port.notify_error(error_msg.clone()).await;
                     return Err(ApplicationError::DomainError(e));
                 }
@@ -118,11 +116,6 @@ impl<R: EventRepository, E: EventOutputPort, O: JournalEntryOutputPort, V: Vouch
         // 3. ユーザーIDの作成
         let user_id = UserId::new(request.user_id.clone());
 
-        // 進捗通知: 明細行の作成
-        self.output_port
-            .notify_progress("仕訳明細を作成しています...".to_string())
-            .await;
-
         // 4. 仕訳明細の作成
         let lines: Result<Vec<_>, _> = request.lines.iter().map(|dto| dto.try_into()).collect();
         let lines = match lines {
@@ -134,10 +127,8 @@ impl<R: EventRepository, E: EventOutputPort, O: JournalEntryOutputPort, V: Vouch
             }
         };
 
-        // 進捗通知: 借貸バランスチェック
-        self.output_port
-            .notify_progress("借貸バランスを検証しています...".to_string())
-            .await;
+        // 進捗通知: 仕訳明細作成完了
+        self.output_port.notify_progress("仕訳明細を作成しました".to_string()).await;
 
         // 5. 借貸バランスチェック
         if let Err(e) = JournalEntryService::validate_balance(&lines) {
@@ -146,10 +137,8 @@ impl<R: EventRepository, E: EventOutputPort, O: JournalEntryOutputPort, V: Vouch
             return Err(ApplicationError::DomainError(e));
         }
 
-        // 進捗通知: 仕訳エンティティの作成
-        self.output_port
-            .notify_progress("仕訳エンティティを作成しています...".to_string())
-            .await;
+        // 進捗通知: 借貸バランス検証完了
+        self.output_port.notify_progress("借貸バランスを検証しました".to_string()).await;
 
         // 6. 仕訳IDの生成（UUIDを使用）
         let entry_id = JournalEntryId::new(uuid::Uuid::new_v4().to_string());
@@ -170,13 +159,13 @@ impl<R: EventRepository, E: EventOutputPort, O: JournalEntryOutputPort, V: Vouch
             }
         };
 
+        // 進捗通知: 仕訳エンティティ作成完了
+        self.output_port
+            .notify_progress("仕訳エンティティを作成しました".to_string())
+            .await;
+
         // 8. イベントの取得（DraftCreatedイベントが含まれる）
         let events = journal_entry.events();
-
-        // 進捗通知: イベントストアへの保存
-        self.output_port
-            .notify_progress("イベントストアへ保存しています...".to_string())
-            .await;
 
         // 9. イベントストアへの保存
         if let Err(e) = self.event_repository.append_events(entry_id.value(), events.to_vec()).await
@@ -186,9 +175,9 @@ impl<R: EventRepository, E: EventOutputPort, O: JournalEntryOutputPort, V: Vouch
             return Err(ApplicationError::DomainError(e));
         }
 
-        // 進捗通知: 完了処理
+        // 進捗通知: イベントストア保存完了
         self.output_port
-            .notify_progress("登録処理を完了しています...".to_string())
+            .notify_progress("イベントストアへ保存しました".to_string())
             .await;
 
         // 10. レスポンスDTOを作成してOutput Portへ送信

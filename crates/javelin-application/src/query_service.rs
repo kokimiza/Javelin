@@ -3,6 +3,7 @@
 // 禁止: Repository利用
 
 pub mod journal_entry_finder;
+pub mod journal_entry_search_query_service;
 pub mod ledger_query_service;
 pub mod master_data_loader;
 
@@ -19,5 +20,6 @@ pub trait QueryService: Send + Sync {
 
 // Re-export for convenience
 pub use journal_entry_finder::*;
+pub use journal_entry_search_query_service::*;
 pub use ledger_query_service::*;
 pub use master_data_loader::*;

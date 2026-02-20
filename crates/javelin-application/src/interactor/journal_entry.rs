@@ -11,6 +11,7 @@ mod delete_draft_journal_entry_interactor;
 mod register_journal_entry_interactor;
 mod reject_journal_entry_interactor;
 mod reverse_journal_entry_interactor;
+mod search_journal_entry_interactor;
 mod submit_for_approval_interactor;
 mod update_draft_journal_entry_interactor;
 
@@ -25,5 +26,6 @@ pub use delete_draft_journal_entry_interactor::DeleteDraftJournalEntryInteractor
 pub use register_journal_entry_interactor::RegisterJournalEntryInteractor;
 pub use reject_journal_entry_interactor::RejectJournalEntryInteractor;
 pub use reverse_journal_entry_interactor::ReverseJournalEntryInteractor;
+pub use search_journal_entry_interactor::SearchJournalEntryInteractor;
 pub use submit_for_approval_interactor::SubmitForApprovalInteractor;
 pub use update_draft_journal_entry_interactor::UpdateDraftJournalEntryInteractor;

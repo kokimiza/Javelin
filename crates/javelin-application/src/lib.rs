@@ -63,12 +63,16 @@ pub mod input_ports {
     pub mod generate_note_draft;
     pub mod generate_trial_balance;
     pub mod load_account_master;
+    pub mod load_application_settings;
+    pub mod load_company_master;
+    pub mod load_subsidiary_account_master;
     pub mod lock_closing_period;
     pub mod prepare_closing;
     pub mod record_user_action;
     pub mod register_journal_entry;
     pub mod reject_journal_entry;
     pub mod reverse_journal_entry;
+    pub mod search_journal_entry;
     pub mod submit_for_approval;
     pub mod update_draft_journal_entry;
 
@@ -88,12 +92,16 @@ pub mod input_ports {
     pub use generate_note_draft::*;
     pub use generate_trial_balance::*;
     pub use load_account_master::*;
+    pub use load_application_settings::*;
+    pub use load_company_master::*;
+    pub use load_subsidiary_account_master::*;
     pub use lock_closing_period::*;
     pub use prepare_closing::*;
     pub use record_user_action::*;
     pub use register_journal_entry::*;
     pub use reject_journal_entry::*;
     pub use reverse_journal_entry::*;
+    pub use search_journal_entry::*;
     pub use submit_for_approval::*;
     pub use update_draft_journal_entry::*;
 }

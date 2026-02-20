@@ -1,4 +1,4 @@
-// LoadAccountMasterInteractor - 勘定科目マスタ取得インタラクタ
+// LoadAccountMasterInteractor - 勘定科目マスタ取得Interactor
 
 use crate::{
     dtos::{AccountMasterItem, LoadAccountMasterRequest, LoadAccountMasterResponse},
@@ -8,7 +8,7 @@ use crate::{
     query_service::master_data_loader::MasterDataLoaderService,
 };
 
-/// 勘定科目マスタ取得インタラクタ
+/// 勘定科目マスタ取得Interactor
 pub struct LoadAccountMasterInteractor<Q, O>
 where
     Q: MasterDataLoaderService,
