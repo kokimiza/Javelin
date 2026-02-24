@@ -2,6 +2,7 @@
 // 責務: Projection検索
 // 禁止: Repository利用
 
+pub mod batch_history_query_service;
 pub mod journal_entry_finder;
 pub mod journal_entry_search_query_service;
 pub mod ledger_query_service;
@@ -19,6 +20,7 @@ pub trait QueryService: Send + Sync {
 }
 
 // Re-export for convenience
+pub use batch_history_query_service::*;
 pub use journal_entry_finder::*;
 pub use journal_entry_search_query_service::*;
 pub use ledger_query_service::*;
