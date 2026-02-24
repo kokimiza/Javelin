@@ -13,8 +13,8 @@ use javelin_infrastructure::{
 };
 
 use crate::controller::{
-    AccountMasterController, ApplicationSettingsController, ClosingController,
-    CompanyMasterController, JournalEntryController, SearchController,
+    AccountMasterController, ApplicationSettingsController, BatchHistoryController,
+    ClosingController, CompanyMasterController, JournalEntryController, SearchController,
     SubsidiaryAccountMasterController,
 };
 
@@ -35,6 +35,9 @@ pub type JournalEntryControllerType = JournalEntryController;
 
 /// Type alias for SearchController (no generics needed)
 pub type SearchControllerType = SearchController;
+
+/// Type alias for BatchHistoryController (no generics needed)
+pub type BatchHistoryControllerType = BatchHistoryController;
 
 /// Type alias for ClosingController with concrete types
 pub type ClosingControllerType = ClosingController<
@@ -61,10 +64,12 @@ pub struct Controllers {
     pub journal_entry: Arc<JournalEntryControllerType>,
     pub closing: Arc<ClosingControllerType>,
     pub search: Arc<SearchControllerType>,
+    pub batch_history: Arc<BatchHistoryControllerType>,
 }
 
 impl Controllers {
     /// Create a new Controllers container
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         account_master: Arc<AccountMasterControllerType>,
         application_settings: Arc<ApplicationSettingsControllerType>,
@@ -73,6 +78,7 @@ impl Controllers {
         journal_entry: Arc<JournalEntryControllerType>,
         closing: Arc<ClosingControllerType>,
         search: Arc<SearchControllerType>,
+        batch_history: Arc<BatchHistoryControllerType>,
     ) -> Self {
         Self {
             account_master,
@@ -82,6 +88,7 @@ impl Controllers {
             journal_entry,
             closing,
             search,
+            batch_history,
         }
     }
 }

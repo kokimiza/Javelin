@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{
     error::AdapterResult,
     navigation::{Controllers, NavAction, PageState, PresenterRegistry, Route},
-    presenter::SearchPresenter,
+    presenter::{AccountMasterPresenter, SearchPresenter},
     views::pages::SearchPage,
 };
 
@@ -21,15 +21,18 @@ pub struct SearchPageState {
     registry: Arc<PresenterRegistry>,
     /// The search page view
     page: SearchPage,
+    /// Account master presenter for this page
+    #[allow(dead_code)]
+    account_master_presenter: Arc<AccountMasterPresenter>,
 }
 
 impl SearchPageState {
     /// Create a new SearchPageState with its own channels
     ///
     /// This method:
-    /// 1. Creates 4 channels (result, error, progress, execution_time)
-    /// 2. Creates SearchPresenter with channel senders
-    /// 3. Registers presenter in PresenterRegistry with unique ID
+    /// 1. Creates 5 channels (result, error, progress, execution_time, account_master)
+    /// 2. Creates SearchPresenter and AccountMasterPresenter with channel senders
+    /// 3. Registers presenters in PresenterRegistry with unique ID
     /// 4. Creates SearchPage with channel receivers
     ///
     /// # Arguments
@@ -49,17 +52,25 @@ impl SearchPageState {
         let (progress_tx, progress_rx) = tokio::sync::mpsc::channel(100);
         let (execution_time_tx, execution_time_rx) = tokio::sync::mpsc::channel(100);
 
+        // Create channel for account master (unbounded to match presenter)
+        let (account_master_tx, account_master_rx) = tokio::sync::mpsc::unbounded_channel();
+
         // Create SearchPresenter with channel senders
         let presenter =
             Arc::new(SearchPresenter::new(result_tx, error_tx, progress_tx, execution_time_tx));
 
-        // Register presenter in PresenterRegistry with unique ID
+        // Create AccountMasterPresenter with channel sender
+        let account_master_presenter = Arc::new(AccountMasterPresenter::new(account_master_tx));
+
+        // Register presenters in PresenterRegistry with unique ID
         registry.register_search_presenter(id, presenter);
+        registry.register_account_master_presenter(id, Arc::clone(&account_master_presenter));
 
         // Create SearchPage with channel receivers
-        let page = SearchPage::new(result_rx, error_rx, progress_rx, execution_time_rx);
+        let mut page = SearchPage::new(result_rx, error_rx, progress_rx, execution_time_rx);
+        page.set_account_master_receiver(account_master_rx);
 
-        Self { id, registry, page }
+        Self { id, registry, page, account_master_presenter }
     }
 }
 
@@ -78,8 +89,7 @@ impl PageState for SearchPageState {
         loop {
             // 科目マスター読み込み待機中の場合、読み込みを開始
             if self.page.is_pending_account_load() {
-                let (tx, rx) = tokio::sync::mpsc::channel(100);
-                self.page.set_account_master_receiver(rx);
+                self.page.clear_pending_account_load();
 
                 let controller = Arc::clone(&controllers.account_master);
                 let page_id = self.id;
@@ -89,16 +99,7 @@ impl PageState for SearchPageState {
 
                     let request = LoadAccountMasterRequest { filter: None, active_only: true };
 
-                    if let Ok(response) =
-                        controller.handle_load_account_master(page_id, request).await
-                    {
-                        let account_list: Vec<(String, String)> = response
-                            .accounts
-                            .into_iter()
-                            .map(|item| (item.code, item.name))
-                            .collect();
-                        let _ = tx.send(account_list).await;
-                    }
+                    let _ = controller.handle_load_account_master(page_id, request).await;
                 });
             }
 

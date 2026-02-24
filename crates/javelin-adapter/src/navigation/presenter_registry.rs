@@ -9,8 +9,9 @@ use std::{
 use uuid::Uuid;
 
 use crate::presenter::{
-    AccountMasterPresenter, ApplicationSettingsPresenter, CompanyMasterPresenter,
-    JournalEntryPresenter, SearchPresenter, SubsidiaryAccountMasterPresenter,
+    AccountMasterPresenter, ApplicationSettingsPresenter, BatchHistoryPresenter,
+    CompanyMasterPresenter, JournalEntryPresenter, SearchPresenter,
+    SubsidiaryAccountMasterPresenter,
 };
 
 /// Global registry mapping page instances to presenters
@@ -48,6 +49,7 @@ pub struct PresenterRegistry {
     application_settings_presenters: Arc<RwLock<HashMap<Uuid, Arc<ApplicationSettingsPresenter>>>>,
     subsidiary_account_master_presenters:
         Arc<RwLock<HashMap<Uuid, Arc<SubsidiaryAccountMasterPresenter>>>>,
+    batch_history_presenters: Arc<RwLock<HashMap<Uuid, Arc<BatchHistoryPresenter>>>>,
 }
 
 impl PresenterRegistry {
@@ -60,6 +62,7 @@ impl PresenterRegistry {
             company_master_presenters: Arc::new(RwLock::new(HashMap::new())),
             application_settings_presenters: Arc::new(RwLock::new(HashMap::new())),
             subsidiary_account_master_presenters: Arc::new(RwLock::new(HashMap::new())),
+            batch_history_presenters: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -191,6 +194,27 @@ impl PresenterRegistry {
         self.subsidiary_account_master_presenters.write().unwrap().remove(&id);
     }
 
+    // Batch History Presenter methods
+
+    /// Register a batch history presenter for a page instance
+    pub fn register_batch_history_presenter(
+        &self,
+        id: Uuid,
+        presenter: Arc<BatchHistoryPresenter>,
+    ) {
+        self.batch_history_presenters.write().unwrap().insert(id, presenter);
+    }
+
+    /// Get a batch history presenter by page instance ID
+    pub fn get_batch_history_presenter(&self, id: Uuid) -> Option<Arc<BatchHistoryPresenter>> {
+        self.batch_history_presenters.read().unwrap().get(&id).cloned()
+    }
+
+    /// Unregister a batch history presenter
+    pub fn unregister_batch_history_presenter(&self, id: Uuid) {
+        self.batch_history_presenters.write().unwrap().remove(&id);
+    }
+
     // Utility methods
 
     /// Get the total number of registered presenters across all types
@@ -201,6 +225,7 @@ impl PresenterRegistry {
             + self.company_master_presenters.read().unwrap().len()
             + self.application_settings_presenters.read().unwrap().len()
             + self.subsidiary_account_master_presenters.read().unwrap().len()
+            + self.batch_history_presenters.read().unwrap().len()
     }
 
     /// Clear all registered presenters (useful for testing)
@@ -211,6 +236,7 @@ impl PresenterRegistry {
         self.company_master_presenters.write().unwrap().clear();
         self.application_settings_presenters.write().unwrap().clear();
         self.subsidiary_account_master_presenters.write().unwrap().clear();
+        self.batch_history_presenters.write().unwrap().clear();
     }
 }
 

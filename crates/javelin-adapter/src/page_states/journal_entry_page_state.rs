@@ -104,8 +104,18 @@ impl PageState for JournalEntryPageState {
 
             // Check if account master data needs to be loaded
             if self.page.has_pending_account_load() {
-                // TODO: 新しいマスタ画面実装後に対応
                 self.page.clear_pending_account_load();
+
+                let controller = Arc::clone(&controllers.account_master);
+                let page_id = self.id;
+
+                tokio::spawn(async move {
+                    use javelin_application::dtos::request::LoadAccountMasterRequest;
+
+                    let request = LoadAccountMasterRequest { filter: None, active_only: true };
+
+                    let _ = controller.handle_load_account_master(page_id, request).await;
+                });
             }
 
             // Render the page

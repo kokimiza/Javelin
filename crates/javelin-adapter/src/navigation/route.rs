@@ -25,8 +25,14 @@ pub enum Route {
     /// 201 - Ledger consolidation
     LedgerConsolidation,
 
+    /// 201E - Ledger consolidation execution
+    LedgerConsolidationExecution,
+
     /// 301 - Closing preparation
     ClosingPreparation,
+
+    /// 301E - Closing preparation execution
+    ClosingPreparationExecution,
 
     /// 302 - Closing lock
     ClosingLock,
@@ -40,11 +46,20 @@ pub enum Route {
     /// 305 - Account adjustment
     AccountAdjustment,
 
+    /// 305E - Account adjustment execution
+    AccountAdjustmentExecution,
+
     /// 306 - IFRS valuation
     IfrsValuation,
 
+    /// 306E - IFRS valuation execution
+    IfrsValuationExecution,
+
     /// 307 - Financial statement generation
     FinancialStatement,
+
+    /// 307E - Financial statement generation execution
+    FinancialStatementExecution,
 
     /// 901 - Account master management
     AccountMaster,
