@@ -163,8 +163,9 @@ pub struct SearchPage {
     overlay_selector: OverlaySelector,
     /// 科目マスター読み込み待機フラグ
     pending_account_load: bool,
-    /// 科目マスターレシーバー
-    account_master_receiver: Option<mpsc::Receiver<Vec<(String, String)>>>,
+    /// 科目マスターレシーバー（ViewModel用、unbounded）
+    account_master_receiver_vm:
+        Option<tokio::sync::mpsc::UnboundedReceiver<crate::presenter::AccountMasterViewModel>>,
 }
 
 impl SearchPage {
@@ -229,19 +230,22 @@ impl SearchPage {
             execution_time_ms: None,
             overlay_selector: OverlaySelector::new("勘定科目を選択"),
             pending_account_load: false,
-            account_master_receiver: None,
+            account_master_receiver_vm: None,
         }
     }
 
     /// ViewModelを受信してテーブルを更新
     pub fn update(&mut self) {
-        // 科目マスターを受信
-        if let Some(ref mut receiver) = self.account_master_receiver
-            && let Ok(accounts) = receiver.try_recv()
+        // 科目マスターを受信（ViewModel形式）
+        if let Some(ref mut receiver) = self.account_master_receiver_vm
+            && let Ok(view_model) = receiver.try_recv()
         {
             let headers = vec!["科目コード".to_string(), "科目名".to_string()];
-            let rows: Vec<Vec<String>> =
-                accounts.into_iter().map(|(code, name)| vec![code, name]).collect();
+            let rows: Vec<Vec<String>> = view_model
+                .accounts
+                .into_iter()
+                .map(|account| vec![account.code, account.name])
+                .collect();
             self.overlay_selector.set_data(headers, rows);
             self.pending_account_load = false;
         }
@@ -395,14 +399,22 @@ impl SearchPage {
         self.result_table.selected_index()
     }
 
-    /// 科目マスターレシーバーを設定
-    pub fn set_account_master_receiver(&mut self, receiver: mpsc::Receiver<Vec<(String, String)>>) {
-        self.account_master_receiver = Some(receiver);
+    /// 科目マスターレシーバーを設定（AccountMasterViewModel用、unbounded）
+    pub fn set_account_master_receiver(
+        &mut self,
+        receiver: tokio::sync::mpsc::UnboundedReceiver<crate::presenter::AccountMasterViewModel>,
+    ) {
+        self.account_master_receiver_vm = Some(receiver);
     }
 
     /// 科目マスター読み込み待機中かどうか
     pub fn is_pending_account_load(&self) -> bool {
         self.pending_account_load
+    }
+
+    /// 科目マスター読み込み待機フラグをクリア
+    pub fn clear_pending_account_load(&mut self) {
+        self.pending_account_load = false;
     }
 
     /// オーバーレイセレクタの次の項目を選択

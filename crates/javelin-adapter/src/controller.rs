@@ -4,6 +4,7 @@
 
 pub mod account_master_controller;
 pub mod application_settings_controller;
+pub mod batch_history_controller;
 pub mod closing_controller;
 pub mod company_master_controller;
 pub mod journal_entry_controller;
@@ -14,6 +15,7 @@ pub mod subsidiary_account_master_controller;
 
 pub use account_master_controller::AccountMasterController;
 pub use application_settings_controller::ApplicationSettingsController;
+pub use batch_history_controller::BatchHistoryController;
 pub use closing_controller::ClosingController;
 pub use company_master_controller::CompanyMasterController;
 // Re-export application layer DTOs for convenience

@@ -4,6 +4,7 @@
 
 pub mod account_master_presenter;
 pub mod application_settings_presenter;
+pub mod batch_history_presenter;
 pub mod company_master_presenter;
 pub mod journal_entry_presenter;
 pub mod ledger_presenter;
@@ -15,6 +16,9 @@ pub use account_master_presenter::{
 };
 pub use application_settings_presenter::{
     ApplicationSettingsPresenter, ApplicationSettingsViewModel,
+};
+pub use batch_history_presenter::{
+    BatchHistoryChannels, BatchHistoryPresenter, BatchHistoryViewModel,
 };
 pub use company_master_presenter::{
     CompanyMasterItemViewModel, CompanyMasterPresenter, CompanyMasterViewModel,
