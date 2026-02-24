@@ -67,7 +67,12 @@ impl EventStore {
             0
         };
 
-        let map_size = std::cmp::max(initial_map_size, existing_size * 2);
+        // 既存ファイルサイズに余裕を持たせるが、指数関数的な増加を防ぐ
+        // existing_size + 50%の余裕、または initial_map_size のいずれか大きい方
+        // ただし、最大10GBまでに制限（異常な増加を防ぐ）
+        const MAX_MAP_SIZE: usize = 10 * 1024 * 1024 * 1024; // 10GB
+        let calculated_size = std::cmp::max(initial_map_size, existing_size + (existing_size / 2));
+        let map_size = std::cmp::min(calculated_size, MAX_MAP_SIZE);
 
         let mut env_builder = Environment::new();
         env_builder.set_max_dbs(2).set_map_size(map_size);

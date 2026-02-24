@@ -1,5 +1,5 @@
-// MasterDataLoaderの実装 - システムマスタリポジトリを使用
-// 責務: システムマスタリポジトリからマスタデータをロード
+// MasterDataLoaderの実装 - 各マスタリポジトリを使用
+// 責務: 各マスタリポジトリからマスタデータをロード
 
 use std::{path::Path, sync::Arc};
 
@@ -10,40 +10,66 @@ use javelin_application::{
         UserOptions,
     },
 };
-use javelin_domain::system_masters::SystemMasterService;
 
-use crate::system_master_repository_impl::SystemMasterRepositoryImpl;
+use crate::repositories::{
+    AccountMasterRepositoryImpl, ApplicationSettingsRepositoryImpl, CompanyMasterRepositoryImpl,
+};
 
 /// マスタデータローダーの実装
 pub struct MasterDataLoaderImpl {
-    repository: Arc<SystemMasterRepositoryImpl>,
+    account_repository: Arc<AccountMasterRepositoryImpl>,
+    company_repository: Arc<CompanyMasterRepositoryImpl>,
+    settings_repository: Arc<ApplicationSettingsRepositoryImpl>,
 }
 
 impl MasterDataLoaderImpl {
     pub async fn new(path: &Path) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let repository = SystemMasterRepositoryImpl::new(path).await?;
-        Ok(Self { repository: Arc::new(repository) })
+        let account_path = path.join("accounts");
+        let company_path = path.join("companies");
+        let settings_path = path.join("settings");
+
+        let account_repository = AccountMasterRepositoryImpl::new(&account_path).await?;
+        let company_repository = CompanyMasterRepositoryImpl::new(&company_path).await?;
+        let settings_repository = ApplicationSettingsRepositoryImpl::new(&settings_path).await?;
+
+        Ok(Self {
+            account_repository: Arc::new(account_repository),
+            company_repository: Arc::new(company_repository),
+            settings_repository: Arc::new(settings_repository),
+        })
     }
 
-    /// システムマスタリポジトリからマスタデータをロード
-    async fn load_from_repository(&self) -> ApplicationResult<MasterData> {
-        // デフォルトのシステムマスタを取得または作成
-        let system_master =
-            SystemMasterService::get_or_create_default_system_master(self.repository.as_ref())
-                .await
-                .map_err(|e| {
-                    javelin_application::error::ApplicationError::QueryExecutionFailed(
-                        e.to_string(),
-                    )
-                })?;
+    /// 各リポジトリからマスタデータをロード
+    async fn load_from_repositories(&self) -> ApplicationResult<MasterData> {
+        use javelin_domain::repositories::{
+            AccountMasterRepository, ApplicationSettingsRepository, CompanyMasterRepository,
+        };
 
-        // ドメインオブジェクトからアプリケーションDTOに変換
-        let accounts = system_master.account_masters().iter().map(AccountMaster::from).collect();
+        let account_masters = self.account_repository.find_all().await.map_err(|e| {
+            javelin_application::error::ApplicationError::QueryExecutionFailed(e.to_string())
+        })?;
 
-        let companies = system_master.company_masters().iter().map(CompanyMaster::from).collect();
+        let company_masters = self.company_repository.find_all().await.map_err(|e| {
+            javelin_application::error::ApplicationError::QueryExecutionFailed(e.to_string())
+        })?;
 
-        let user_options = UserOptions::from(system_master.user_settings());
-        let system_settings = SystemSettings::from(system_master.system_settings());
+        let settings = self
+            .settings_repository
+            .find()
+            .await
+            .map_err(|e| {
+                javelin_application::error::ApplicationError::QueryExecutionFailed(e.to_string())
+            })?
+            .ok_or_else(|| {
+                javelin_application::error::ApplicationError::QueryExecutionFailed(
+                    "Application settings not found".to_string(),
+                )
+            })?;
+
+        let accounts = account_masters.iter().map(AccountMaster::from).collect();
+        let companies = company_masters.iter().map(CompanyMaster::from).collect();
+        let user_options = UserOptions::from(&settings);
+        let system_settings = SystemSettings::from(&settings);
 
         Ok(MasterData { accounts, companies, user_options, system_settings })
     }
@@ -51,7 +77,7 @@ impl MasterDataLoaderImpl {
 
 impl MasterDataLoaderService for MasterDataLoaderImpl {
     async fn load_master_data(&self) -> ApplicationResult<MasterData> {
-        self.load_from_repository().await
+        self.load_from_repositories().await
     }
 }
 

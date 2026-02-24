@@ -11,6 +11,7 @@ use javelin_application::{
     projection_builder::ProjectionBuilder as ProjectionBuilderTrait,
 };
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
 use crate::{event_store::EventStore, event_stream::StoredEvent, projection_db::ProjectionDb};
 
@@ -33,6 +34,8 @@ pub struct ProjectionBuilderImpl {
     event_store: Arc<EventStore>,
     /// 再試行キュー（要件7.4）
     retry_queue: Arc<Mutex<VecDeque<RetryQueueEntry>>>,
+    /// インフラエラー通知チャネル
+    error_sender: Arc<Mutex<Option<mpsc::UnboundedSender<String>>>>,
 }
 
 impl ProjectionBuilderImpl {
@@ -42,7 +45,12 @@ impl ProjectionBuilderImpl {
     /// * `projection_db` - ProjectionDBへの参照
     /// * `event_store` - EventStoreへの参照
     pub fn new(projection_db: Arc<ProjectionDb>, event_store: Arc<EventStore>) -> Self {
-        Self { projection_db, event_store, retry_queue: Arc::new(Mutex::new(VecDeque::new())) }
+        Self {
+            projection_db,
+            event_store,
+            retry_queue: Arc::new(Mutex::new(VecDeque::new())),
+            error_sender: Arc::new(Mutex::new(None)),
+        }
     }
 
     /// 単一イベントからProjectionを更新（内部実装）
@@ -480,6 +488,9 @@ impl ProjectionBuilderImpl {
     /// イベント保存時に自動的にこのハンドラが呼び出され、
     /// Projectionが更新される。
     ///
+    /// # Arguments
+    /// * `error_sender` - インフラエラー通知用チャネル
+    ///
     /// # Returns
     /// イベント通知コールバック
     ///
@@ -487,16 +498,24 @@ impl ProjectionBuilderImpl {
     /// 要件: 7.2
     pub fn create_event_notification_handler(
         self: Arc<Self>,
+        error_sender: mpsc::UnboundedSender<String>,
     ) -> crate::event_store::EventNotificationCallback {
+        // エラーチャネルを保存
+        *self.error_sender.lock().unwrap() = Some(error_sender.clone());
+
         Arc::new(move |event| {
             let builder = Arc::clone(&self);
+            let error_sender = error_sender.clone();
             Box::pin(async move {
                 if let Err(e) = builder.process_event_internal(&event).await {
-                    // エラーログを記録（要件7.4）
-                    eprintln!(
+                    // エラーメッセージを作成
+                    let error_message = format!(
                         "Projection更新エラー [seq={}, agg={}]: {:?}",
                         event.global_sequence, event.aggregate_id, e
                     );
+
+                    // エラーチャネルに送信（UIのイベントログに表示される）
+                    let _ = error_sender.send(error_message);
 
                     // 再試行キューへの追加（要件7.4）
                     builder.add_to_retry_queue(event, e.to_string());
@@ -542,19 +561,25 @@ impl ProjectionBuilderImpl {
 
                     match self.process_event_internal(&entry.event).await {
                         Ok(_) => {
-                            // 成功 - 次のエントリへ
-                            println!(
+                            // 成功 - イベントログに通知
+                            let success_message = format!(
                                 "Projection更新リトライ成功 [seq={}, retry={}]",
                                 entry.event.global_sequence, entry.retry_count
                             );
+                            if let Some(sender) = self.error_sender.lock().unwrap().as_ref() {
+                                let _ = sender.send(success_message);
+                            }
                         }
                         Err(e) => {
                             if entry.retry_count >= MAX_RETRIES {
-                                // 最大リトライ回数に達した - エラーログを記録
-                                eprintln!(
+                                // 最大リトライ回数に達した - イベントログに通知
+                                let error_message = format!(
                                     "Projection更新リトライ失敗（最大回数到達） [seq={}, retry={}]: {:?}",
                                     entry.event.global_sequence, entry.retry_count, e
                                 );
+                                if let Some(sender) = self.error_sender.lock().unwrap().as_ref() {
+                                    let _ = sender.send(error_message);
+                                }
                             } else {
                                 // 再度キューに追加
                                 entry.last_error = e.to_string();

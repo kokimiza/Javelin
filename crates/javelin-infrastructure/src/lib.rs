@@ -8,9 +8,9 @@ pub mod event_handlers;
 pub mod journal_entry_finder_impl;
 pub mod ledger_query_service_impl;
 pub mod queries;
+pub mod repositories;
 pub mod services;
 pub mod storage_metrics;
-pub mod system_master_repository_impl;
 pub mod types;
 
 // Event Store modules
@@ -64,11 +64,13 @@ pub use queries::{
     journal_entry_projection, journal_entry_projection_worker, ledger_projection,
     master_data_loader_impl,
 };
+pub use repositories::{
+    AccountMasterRepositoryImpl, ApplicationSettingsRepositoryImpl, CompanyMasterRepositoryImpl,
+};
 pub use services::VoucherNumberGeneratorImpl;
 pub use snapshot_db::{
     EveryNEvents, EveryNMinutes, Snapshot, SnapshotDb, SnapshotEvery60Min, SnapshotEvery100,
     SnapshotEvery1000, SnapshotPolicyTrait,
 };
 pub use storage_metrics::{DurabilityPolicy, ProjectionLagMetrics, StorageMetrics};
-pub use system_master_repository_impl::SystemMasterRepositoryImpl;
 pub use types::{AggregateId, EventKey, ExpectedVersion, Sequence};
