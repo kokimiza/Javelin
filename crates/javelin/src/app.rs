@@ -18,9 +18,8 @@ use crate::{app_error::AppResult, app_resolver::PageStateResolver};
 /// アプリケーション全体の構成
 pub struct Application {
     nav_stack: NavigationStack,
-    controllers: Controllers,
-    #[allow(dead_code)]
-    presenter_registry: Arc<PresenterRegistry>,
+    controllers: Arc<Controllers>,
+    _presenter_registry: Arc<PresenterRegistry>,
     terminal_manager: TerminalManager,
     resolver: PageStateResolver,
     // Infrastructure層（保持のみ）
@@ -54,12 +53,14 @@ impl Application {
         >,
         infra_error_receiver: mpsc::UnboundedReceiver<String>,
     ) -> Self {
-        let resolver = PageStateResolver::new(Arc::clone(&presenter_registry));
+        let controllers_arc = Arc::new(controllers);
+        let resolver =
+            PageStateResolver::new(Arc::clone(&presenter_registry), Arc::clone(&controllers_arc));
 
         Self {
             nav_stack: NavigationStack::new(),
-            controllers,
-            presenter_registry,
+            controllers: controllers_arc,
+            _presenter_registry: presenter_registry,
             terminal_manager,
             resolver,
             _closing_page: closing_page,

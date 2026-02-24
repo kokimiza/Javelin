@@ -6,9 +6,9 @@ use std::{path::Path, sync::Arc};
 use javelin_adapter::{
     PresenterRegistry,
     controller::{
-        AccountMasterController, ApplicationSettingsController, ClosingController,
-        CompanyMasterController, JournalEntryController, LedgerController, SearchController,
-        SubsidiaryAccountMasterController,
+        AccountMasterController, ApplicationSettingsController, BatchHistoryController,
+        ClosingController, CompanyMasterController, JournalEntryController, LedgerController,
+        SearchController, SubsidiaryAccountMasterController,
     },
     navigation::Controllers,
     presenter::LedgerPresenter,
@@ -28,7 +28,9 @@ use javelin_infrastructure::{
     ledger_query_service_impl::LedgerQueryServiceImpl,
     projection_builder_impl::ProjectionBuilderImpl,
     projection_db::ProjectionDb,
-    queries::{JournalEntrySearchQueryServiceImpl, MasterDataLoaderImpl},
+    queries::{
+        BatchHistoryQueryServiceImpl, JournalEntrySearchQueryServiceImpl, MasterDataLoaderImpl,
+    },
     repositories::SubsidiaryAccountMasterRepositoryImpl,
     services::VoucherNumberGeneratorImpl,
 };
@@ -160,6 +162,7 @@ pub async fn setup_controllers(
     let ledger_query_service = Arc::new(LedgerQueryServiceImpl::new(Arc::clone(&event_store)));
     let search_query_service =
         Arc::new(JournalEntrySearchQueryServiceImpl::new(Arc::clone(&event_store)));
+    let batch_history_query_service = Arc::new(BatchHistoryQueryServiceImpl::new());
 
     // PresenterRegistry
     let presenter_registry = Arc::new(PresenterRegistry::new());
@@ -242,6 +245,12 @@ pub async fn setup_controllers(
         Arc::clone(&presenter_registry),
     ));
 
+    // BatchHistoryController構築
+    let batch_history_controller = Arc::new(BatchHistoryController::new(
+        Arc::clone(&batch_history_query_service),
+        Arc::clone(&presenter_registry),
+    ));
+
     // Controllers container
     let controllers = Controllers::new(
         account_master_controller,
@@ -251,6 +260,7 @@ pub async fn setup_controllers(
         journal_entry_controller,
         closing_controller,
         search_controller,
+        batch_history_controller,
     );
 
     // View層の構築
